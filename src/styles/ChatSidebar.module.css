@@ -1,0 +1,284 @@
+/* ===== BASE CONTAINERS ===== */
+
+.sidebar,
+.sidebarCollapsed {
+  height: 100vh;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  color: #111827;
+}
+
+/* OPEN SIDEBAR (full width) */
+.sidebar {
+  width: 230px;
+  padding: 12px 12px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+
+/* COLLAPSED RAIL */
+.sidebarCollapsed {
+  width: 50px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* ===== OPEN: TOP ROW (logo + collapse btn) ===== */
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* open-state logo */
+.logoWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* shared image style */
+.logoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* round button inside header (collapse) */
+.topToggle {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 14px;
+}
+
+.topToggle:hover {
+  background: #f9fafb;
+}
+
+/* ===== OPEN: BUTTONS SECTION ===== */
+
+.section {
+  margin-bottom: 16px;
+}
+
+.newChat {
+width: 100%;
+margin-top: 20px;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.newChat:hover {
+  background: #f3f4f6;
+}
+
+.menuBtn {
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menuBtn:hover {
+  background: #f3f4f6;
+}
+
+/* ===== OPEN: CHATS LIST – SCROLLABLE ONLY HERE ===== */
+
+.chatsWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* important for flex + scroll */
+}
+
+.sectionTitle {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-bottom: 6px;
+  margin-left: 10px;
+  letter-spacing: 0.04em;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+}
+
+.listItem {
+  padding: 7px 10px;
+  font-size: 13px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.listItem:hover {
+  background: #e5e7eb;
+}
+
+/* ===== OPEN: FOOTER USER CHIP ===== */
+
+.footer {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f3f4f6;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  background: #111827;
+  color: #f9fafb;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.username {
+  font-size: 12px;
+}
+
+.plan {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* ===== COLLAPSED RAIL STYLE (icons only) ===== */
+
+.railTop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  
+}
+
+/* collapsed-logo-as-button */
+.logoMini {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  margin-bottom: 10px;
+}
+
+/* arrow overlay (hidden until hover) */
+.logoMiniArrow {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+/* hover: dim logo image and show arrow */
+.logoMini:hover .logoImg {
+  opacity: 0.3;
+}
+
+.logoMini:hover .logoMiniArrow {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* collapsed icons */
+.railIconBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.railIconBtn:hover {
+  background: #f3f4f6;
+}
+
+.railBottom {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.avatarRail {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}

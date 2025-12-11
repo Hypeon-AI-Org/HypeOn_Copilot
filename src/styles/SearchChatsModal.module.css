@@ -1,0 +1,133 @@
+/* === Light Overlay (soft white) === */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+}
+
+/* === Main Modal Card (white) === */
+.modal {
+  width: 640px;
+  max-height: 480px;
+  background: #ffffff;        /* WHITE */
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;  /* LIGHT GREY */
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  padding: 14px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  color: #111827;             /* BLACK TEXT */
+}
+
+/* === Search Bar Row === */
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.searchInput {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;        /* LIGHT INPUT */
+  padding: 10px 14px;
+  color: #111827;
+  font-size: 14px;
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: #6b7280;
+}
+
+/* Close button */
+.closeBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.closeBtn:hover {
+  background: #f3f4f6;
+}
+
+/* === "New chat" Row === */
+.newChatRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.newChatRow:hover {
+  background: #f3f4f6;
+}
+
+.newChatIcon {
+  font-size: 14px;
+}
+
+/* === Scrollable Chats List === */
+.listWrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.groupLabel {
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* Chat row */
+.chatRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #111827;
+}
+
+.chatRow:hover {
+  background: #f3f4f6;
+}
+
+.chatBullet {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid #9ca3af;
+}
+
+/* Truncate long titles */
+.chatTitle {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
