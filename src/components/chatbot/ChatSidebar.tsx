@@ -136,7 +136,7 @@ export default function ChatGPTSidebar({
           <li className={styles.listItem}>Architecture explanation</li>
           <li className={styles.listItem}>Chatbot creation plan</li>
           <li className={styles.listItem}>Chat UI layout versions</li>
-          <li className={styles.listItem}>MCP server explanation</li>
+        
         </ul>
       </div>
 
