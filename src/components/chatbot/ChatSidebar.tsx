@@ -130,12 +130,13 @@ export default function ChatGPTSidebar({
       <div className={styles.chatsWrapper}>
         <div className={styles.sectionTitle}>Your chats</div>
         <ul className={styles.list}>
-          <li className={styles.listItem}>Light mode sidebar code</li>
-          <li className={styles.listItem}>Robots txt for wallpaper store</li>
-          <li className={styles.listItem}>Code update for header</li>
-          <li className={styles.listItem}>Architecture explanation</li>
-          <li className={styles.listItem}>Chatbot creation plan</li>
-          <li className={styles.listItem}>Chat UI layout versions</li>
+       <li className={styles.listItem}>Show trending wallpaper products in the US</li>
+<li className={styles.listItem}>Find high-intent wallpaper keywords (US market)</li>
+<li className={styles.listItem}>Generate ad creatives for wallpaper products</li>
+<li className={styles.listItem}>Suggest best-selling wallpaper styles</li>
+<li className={styles.listItem}>Write product descriptions for wallpaper items</li>
+<li className={styles.listItem}>Analyze competitor wallpaper brands</li>
+
         
         </ul>
       </div>
