@@ -11,26 +11,27 @@ type ChatGPTSidebarProps = {
 };
 
 /* ICONS */
-const NewChatIconCollapsed = () => (
+const PlusIcon = () => (
   <svg
-    width="20"
-    height="20"
+    width="16"
+    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.7"
+    strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
+    aria-hidden
+    focusable="false"
   >
-    <rect x="3" y="3" width="18" height="18" rx="4" />
-    <path d="M8 16l1-4 7-7a2 2 0 1 1 3 3l-7 7-4 1z" />
+    <path d="M12 5v14M5 12h14" />
   </svg>
 );
 
 const SearchIcon = () => (
   <svg
-    width="20"
-    height="20"
+    width="18"
+    height="18"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -43,17 +44,31 @@ const SearchIcon = () => (
   </svg>
 );
 
+function truncateWords(text: string, maxWords = 6) {
+  if (!text) return "";
+  const words = text.trim().split(/\s+/);
+  if (words.length <= maxWords) return text;
+  return words.slice(0, maxWords).join(" ") + "…";
+}
+
 export default function ChatGPTSidebar({
   collapsed,
   onToggle,
   onOpenSearch,
 }: ChatGPTSidebarProps) {
-  /* ================= COLLAPSED RAIL ================= */
+  const chats = [
+    "Show trending wallpaper products in the US",
+    "Find high-intent wallpaper keywords (US market)",
+    "Generate ad creatives for wallpaper products",
+    "Suggest best-selling wallpaper styles",
+    "Write product descriptions for wallpaper items",
+   
+  ];
+
   if (collapsed) {
     return (
       <aside className={styles.sidebarCollapsed}>
         <div className={styles.railTop}>
-          {/* Logo = open sidebar button */}
           <button
             className={styles.logoMini}
             onClick={onToggle}
@@ -69,15 +84,15 @@ export default function ChatGPTSidebar({
             <span className={styles.logoMiniArrow}>›</span>
           </button>
 
-          {/* Icons below logo */}
-          <button className={styles.railIconBtn} title="New chat">
-            <NewChatIconCollapsed />
+          <button className={styles.railIconBtn} title="New chat" aria-label="New chat">
+            <PlusIcon />
           </button>
 
           <button
             className={styles.railIconBtn}
             title="Search chats"
             onClick={onOpenSearch}
+            aria-label="Search chats"
           >
             <SearchIcon />
           </button>
@@ -90,7 +105,6 @@ export default function ChatGPTSidebar({
     );
   }
 
-  /* ================= OPEN SIDEBAR ================= */
   return (
     <aside className={styles.sidebar}>
       <div className={styles.topRow}>
@@ -116,13 +130,20 @@ export default function ChatGPTSidebar({
       </div>
 
       <div className={styles.section}>
-        <button className={styles.newChat}>
-          <NewChatIconCollapsed />
-          <span>New chat</span>
+        <button className={styles.newChat} title="New chat">
+          <span className={styles.iconWrap}>
+            <PlusIcon />
+          </span>
+          <span className={styles.newChatText}>New chat</span>
         </button>
 
-        <button className={styles.menuBtn} onClick={onOpenSearch}>
-          <SearchIcon />
+        <button
+          className={`${styles.menuBtn} ${styles.searchPill}`}
+          onClick={onOpenSearch}
+        >
+          <span className={styles.iconWrap}>
+            <SearchIcon />
+          </span>
           <span>Search chats</span>
         </button>
       </div>
@@ -130,14 +151,16 @@ export default function ChatGPTSidebar({
       <div className={styles.chatsWrapper}>
         <div className={styles.sectionTitle}>Your chats</div>
         <ul className={styles.list}>
-       <li className={styles.listItem}>Show trending wallpaper products in the US</li>
-<li className={styles.listItem}>Find high-intent wallpaper keywords (US market)</li>
-<li className={styles.listItem}>Generate ad creatives for wallpaper products</li>
-<li className={styles.listItem}>Suggest best-selling wallpaper styles</li>
-<li className={styles.listItem}>Write product descriptions for wallpaper items</li>
-<li className={styles.listItem}>Analyze competitor wallpaper brands</li>
-
-        
+          {chats.map((c, i) => (
+            <li
+              key={i}
+              className={styles.listItem}
+              title={c}
+              aria-label={`Open chat: ${c}`}
+            >
+              {truncateWords(c, 6)}
+            </li>
+          ))}
         </ul>
       </div>
 
