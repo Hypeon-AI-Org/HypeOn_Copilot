@@ -1,0 +1,104 @@
+import { NextResponse } from "next/server";
+
+const GROQ_API_KEY = process.env.GROQ_API_KEY!;
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+export async function POST(req: Request) {
+  const { message, model } = await req.json();
+
+  const systemPrompt = `
+You are HypeOn Copilot, an AI for ecommerce product and keyword intelligence.
+
+Your task:
+1. Detect the user’s intent automatically.
+   - If the user asks about PRODUCTS → return a product table.
+   - If the user asks about KEYWORDS → return a keyword table.
+
+You MUST respond ONLY in valid JSON using this structure:
+
+{
+  "summary": "4–5 short lines of plain text insight",
+  "table": {
+    "type": "product_table | keyword_table",
+    "columns": [],
+    "rows": []
+  }
+}
+
+==============================
+PRODUCT TABLE RULES
+==============================
+If intent is PRODUCTS:
+
+"type": "product_table"
+"columns": [
+  "Product Name",
+  "Hype Score",
+  "Weekly Trend %",
+  "Monthly Trend %"
+]
+
+Rules:
+- Hype Score must be a number from 0 to 100
+- Weekly Trend = growth over the last 7 days
+- Monthly Trend = growth over the last 30 days
+- Data should be realistic for ecommerce
+- Return 4–5 rows
+
+==============================
+KEYWORD TABLE RULES
+==============================
+If intent is KEYWORDS:
+
+"type": "keyword_table"
+"columns": [
+  "Keyword",
+  "Search Volume",
+  "CPC (USD)"
+]
+
+Rules:
+- Search Volume is monthly
+- CPC must be a realistic USD advertising cost
+- Return 4–5 rows
+
+==============================
+SUMMARY RULES
+==============================
+- Summary must be 4–5 short lines
+- Plain text only
+- No bullet points
+
+==============================
+IMPORTANT
+==============================
+- Output ONLY valid JSON
+- No markdown
+- No explanations outside JSON
+- Do NOT wrap JSON in code blocks
+
+`;
+
+  const res = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: model === "pro"
+        ? "llama-3.1-70b-versatile"
+        : "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
+      temperature: 0.4,
+    }),
+  });
+
+  const data = await res.json();
+  const content = data.choices[0].message.content;
+
+  return NextResponse.json(JSON.parse(content));
+}

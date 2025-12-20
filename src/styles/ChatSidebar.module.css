@@ -40,7 +40,7 @@ border-right: 1px solid rgba(255, 255, 255, 0.45);
 
 /* OPEN SIDEBAR (full width) */
 .sidebar {
-  width: 230px;
+  width: 240px;
   padding: 12px 12px 10px;
   display: flex;
   flex-direction: column;
@@ -81,14 +81,16 @@ transition:
 
 /* open-state logo */
 .logoWrapper {
-  width: 40px;
-  height: 40px;
+  width: 55px;
+  height: 55px;
   border-radius: 999px;
-  background: #eef2ff;
+
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  margin-left: -5px;
+  margin-top: -5PX;
 }
 
 /* shared image style */
@@ -98,24 +100,39 @@ transition:
   object-fit: contain;
 }
 
-/* round button inside header (collapse) */
+
 .topToggle {
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+margin-top: -2px;
+  /* NO FILL – FULLY TRANSPARENT */
+  background: transparent;
+
+  /* GLASS BLUR (still works even without fill) */
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  /* GLASS RING */
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  /* FLOATING DEPTH */
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  font-size: 14px;
+  font-size: 20px;
+  color: #111827;
+
+  transition: all 0.2s ease;
 }
 
+/* Hover: ring becomes clearer */
 .topToggle:hover {
-  background: #f9fafb;
+  border-color: rgba(255, 255, 255, 0.45);
 }
+
+/* Press */
+
 
 /* ===== OPEN: BUTTONS SECTION ===== */
 
@@ -141,6 +158,7 @@ border-radius: 12px;
     0 4px 12px rgba(16, 24, 40, 0.04);
 
   font-size: 13px;
+  margin-top: 20px;
   text-align: left;
   border-radius: 12px; /* pill-like */
   cursor: pointer;
@@ -208,8 +226,7 @@ border-radius: 12px;
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* important for flex + scroll */
-  /* reserve space so footer stays visible */
+  min-height: 0; 
   padding-bottom: 6px;
 }
 
@@ -223,45 +240,7 @@ border-radius: 12px;
   letter-spacing: 0.04em;
 }
 
-/* list area: take remaining space, scroll only here */
-.list {
-  font-size: 11px;
-  list-style: none;
-  padding: 6px 0;
-  margin: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-right: 8px; /* for scrollbar breathing room */
-}
 
-/* show single-line ellipsis if text overflows the item width */
-.listItem {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 8px;
-  margin: 2px 8px;
-}
-
-.listItem:hover {
-  background: #e5e7eb;
-}
-
-/* Custom scrollbar (WebKit) */
-.list::-webkit-scrollbar {
-  width: 8px;
-}
-.list::-webkit-scrollbar-thumb {
-  background: rgba(16,24,40,0.12);
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-.list::-webkit-scrollbar-track {
-  background: transparent;
-}
 
 /* Firefox scrollbar */
 @supports (scrollbar-width: thin) {
@@ -318,16 +297,16 @@ border: 1px solid rgba(255,255,255,0.45);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 3px;
   margin-top: 4px;
 }
 
 /* collapsed-logo-as-button */
 .logoMini {
-  width: 40px;
-  height: 40px;
+  width: 45px;
+  height: 45px;
   border-radius: 999px;
-  background: #eef2ff;
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -364,8 +343,8 @@ border: 1px solid rgba(255,255,255,0.45);
 
 /* collapsed icons */
 .railIconBtn {
-  width: 32px;
-  height: 32px;
+  width: 50px;
+  height: 50px;
   border-radius: 999px;
   border: none;
   background: transparent;
@@ -465,4 +444,152 @@ border: 1px solid rgba(255,255,255,0.45);
   .sidebar { width: 200px; }
   .sidebarCollapsed { width: 48px; }
   .listItem { padding: 8px 10px; }
+}
+/* ===== CHAT LIST ===== */
+
+/* ===== CHAT LIST ===== */
+
+.list {
+  flex: 1;            /* 🔥 REQUIRED */
+  min-height: 0;      /* 🔥 REQUIRED */
+
+  font-size: 14px;
+  list-style: none;
+  padding: 6px 0;
+  margin: 0;
+
+  overflow-y: auto;
+  overflow-x: visible;
+
+  -webkit-overflow-scrolling: touch;
+  padding-right: 8px;
+}
+
+
+/* ===== CHAT ROW ===== */
+
+.listItem {
+  position: relative;      
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 8px 12px;
+  margin: 2px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+
+  overflow: visible;      
+}
+
+.listItem:hover {
+  background: #e5e7eb;
+}
+
+
+
+.moreBtn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #9aa0a6;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.listItem:hover .moreBtn {
+  opacity: 1;
+  pointer-events: auto;
+}
+.chatTitle {
+  flex: 1;
+           
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+/* ===== CONTEXT MENU (OUTSIDE SIDEBAR) ===== */
+
+.contextMenu {
+  position: fixed;
+  margin-top: 70px;
+  transform: translateY(-50%);
+ 
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 140px;
+
+  font-family: "Source Serif 4", "Georgia", serif;
+  font-weight: 500;
+  font-size: 15px;
+  color: #1f2937;
+
+  z-index: 9999;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  animation: menuPop 0.12s ease-out;
+}
+
+/* ===== POP ANIMATION ===== */
+
+@keyframes menuPop {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+/* ===== MENU BUTTONS ===== */
+
+.contextMenu button {
+  display: flex;
+  width: 100%;
+  padding: 8px 12px;
+
+  background: none;
+  border: none;
+  border-radius: 6px;
+
+  color: #111827; /* readable on light bg */
+  font-size: 14px;
+  font-family: inherit;
+
+  cursor: pointer;
+  text-align: left;
+}
+
+.contextMenu button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.contextMenu button:hover {
+  background: #686060;
+}
+
+/* ===== DELETE ===== */
+
+.deleteBtn {
+  color: #ef4444;
+}
+
+/* ===== RENAME INPUT ===== */
+
+.renameInput {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #4e4f53;
+  font-size: 12px;
 }

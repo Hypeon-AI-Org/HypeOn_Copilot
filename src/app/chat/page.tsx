@@ -6,102 +6,264 @@ import dynamic from "next/dynamic";
 import SearchChatsModal from "@/components/chatbot/SearchChatsModal";
 import styles from "../../styles/chat.module.css";
 
-// Sidebar (client-only)
-const ChatSidebar = dynamic(() => import("@/components/chatbot/ChatSidebar"), {
-  ssr: false,
-});
+const ChatSidebar = dynamic(
+  () => import("@/components/chatbot/ChatSidebar"),
+  { ssr: false }
+);
 
-const MOCK_CHATS = [
-  { id: "1", title: "Top-right corner cut", group: "today" as const },
-  { id: "2", title: "Light mode sidebar code", group: "today" as const },
-  { id: "3", title: "Icon SVGs provided", group: "today" as const },
-  { id: "4", title: "Robots txt for wallpaper store", group: "yesterday" as const },
-  { id: "5", title: "Code update for header", group: "yesterday" as const },
-];
+type Message =
+  | { role: "user"; text: string }
+  | {
+      role: "assistant";
+      summary: string;
+      table: {
+        type: "product_table" | "keyword_table";
+        columns: string[];
+        rows: (string | number)[][];
+      };
+      isNew?: boolean;
+    };
+
+type ChatSession = {
+  id: string;
+  title: string;
+  messages: Message[];
+  updatedAt: number;
+};
+
+function TypingSummary({
+  text,
+  onDone,
+}: {
+  text: string;
+  onDone: () => void;
+}) {
+  const [displayed, setDisplayed] = useState("");
+
+  useEffect(() => {
+    let i = 0;
+    const words = text.split(" ");
+
+    const timer = setInterval(() => {
+      setDisplayed((prev) => prev + (prev ? " " : "") + words[i]);
+      i++;
+
+      if (i >= words.length) {
+        clearInterval(timer);
+        onDone();
+      }
+    }, 45);
+
+    return () => clearInterval(timer);
+  }, [text, onDone]);
+
+  return <p>{displayed}</p>;
+}
+
+function StreamingTable({
+  rows,
+  onDone,
+  delay = 140,
+}: {
+  rows: any[];
+  onDone: () => void;
+  delay?: number;
+}) {
+  const [visibleRows, setVisibleRows] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!Array.isArray(rows)) return;
+
+    setVisibleRows([]);
+    let i = 0;
+
+    const timer = setInterval(() => {
+      const row = rows[i];
+
+      const safeRow =
+        Array.isArray(row)
+          ? row
+          : row && typeof row === "object"
+          ? Object.values(row)
+          : [];
+
+      setVisibleRows((prev) => [...prev, safeRow]);
+      i++;
+
+      if (i >= rows.length) {
+        clearInterval(timer);
+        onDone();
+      }
+    }, delay);
+
+    return () => clearInterval(timer);
+  }, [rows, delay, onDone]);
+
+  return (
+    <>
+      {visibleRows.map((row, ri) => (
+        <tr key={ri}>
+          {row.map((cell: any, ci: number) => (
+            <td key={ci}>{String(cell ?? "")}</td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
 
 export default function ChatPage() {
-  /* ---------------- Sidebar ---------------- */
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try {
-      return (
-        typeof window !== "undefined" &&
-        localStorage.getItem("sidebar-collapsed") === "true"
-      );
-    } catch {
-      return false;
-    }
-  });
-
+  const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  /* ---------------- Input + Model ---------------- */
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const [model, setModel] = useState<"basic" | "pro">("basic");
-  const [modelOpen, setModelOpen] = useState(false);
+  const [chats, setChats] = useState<ChatSession[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
-  const actionsRef = useRef<HTMLDivElement | null>(null);
+  const [model, setModel] = useState<"basic" | "pro" | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [typingDone, setTypingDone] = useState<Record<number, boolean>>({});
+  const [tableDone, setTableDone] = useState<Record<number, boolean>>({});
 
-  /* ---------------- Mount animation ---------------- */
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const hasChat = messages.length > 0;
+
   const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 60);
-    return () => clearTimeout(t);
+    setTimeout(() => setMounted(true), 60);
   }, []);
 
-  /* ---------------- Animated Placeholder ---------------- */
-  const PLACEHOLDER_TEXT = " Describe what you want to analyze…";
+  const PLACEHOLDER_TEXT = "Describe what you want to analyze…";
   const [animatedPlaceholder, setAnimatedPlaceholder] = useState("");
   const [isTypingActive, setIsTypingActive] = useState(true);
+
+  useEffect(() => {
+    const savedChats = localStorage.getItem("hypeon_chats");
+    const savedActive = localStorage.getItem("hypeon_active_chat");
+
+    if (!savedChats) return;
+
+    const parsed: ChatSession[] = JSON.parse(savedChats);
+    setChats(parsed);
+
+    if (savedActive === "new" || !savedActive) {
+      setActiveChatId(null);
+      setMessages([]);
+      return;
+    }
+
+    const chat = parsed.find((c) => c.id === savedActive);
+    if (chat) {
+      setActiveChatId(chat.id);
+      setMessages(
+        chat.messages.map((m) =>
+          m.role === "assistant" ? { ...m, isNew: false } : m
+        )
+      );
+    } else {
+      setActiveChatId(null);
+      setMessages([]);
+      localStorage.setItem("hypeon_active_chat", "new");
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("hypeon_chats", JSON.stringify(chats));
+  }, [chats]);
 
   useEffect(() => {
     if (!isTypingActive || input.length > 0) return;
 
     let i = 0;
-    let direction: "forward" | "backward" = "forward";
-    let timeoutId: NodeJS.Timeout;
+    let dir: "f" | "b" = "f";
+    let t: NodeJS.Timeout;
 
-    const tick = () => {
+    const run = () => {
       if (!isTypingActive || input.length > 0) return;
 
-      if (direction === "forward") {
-        setAnimatedPlaceholder(PLACEHOLDER_TEXT.slice(0, i + 1));
-        i++;
-
-        if (i === PLACEHOLDER_TEXT.length) {
-          timeoutId = setTimeout(() => {
-            direction = "backward";
-          }, 1200);
-        }
+      if (dir === "f") {
+        setAnimatedPlaceholder(PLACEHOLDER_TEXT.slice(0, ++i));
+        if (i === PLACEHOLDER_TEXT.length)
+          setTimeout(() => (dir = "b"), 1200);
       } else {
-        setAnimatedPlaceholder(PLACEHOLDER_TEXT.slice(0, i - 1));
-        i--;
-
-        if (i === 0) {
-          direction = "forward";
-        }
+        setAnimatedPlaceholder(PLACEHOLDER_TEXT.slice(0, --i));
+        if (i === 0) dir = "f";
       }
 
-      timeoutId = setTimeout(tick, direction === "forward" ? 55 : 35);
+      t = setTimeout(run, dir === "f" ? 55 : 35);
     };
 
-    timeoutId = setTimeout(tick, 500);
-
-    return () => clearTimeout(timeoutId);
+    t = setTimeout(run, 500);
+    return () => clearTimeout(t);
   }, [isTypingActive, input]);
 
-  /* ---------------- Send message ---------------- */
-  function sendMessage(text: string) {
+  async function sendMessage(text: string) {
     if (!text.trim()) return;
-    console.log("MODEL:", model, "MESSAGE:", text);
+
+    let chatId = activeChatId;
+
+    if (!chatId) {
+      chatId = crypto.randomUUID();
+
+      const newChat: ChatSession = {
+        id: chatId,
+        title: text,
+        messages: [],
+        updatedAt: Date.now(),
+      };
+
+      setChats((prev) => [newChat, ...prev]);
+      setActiveChatId(chatId);
+      localStorage.setItem("hypeon_active_chat", chatId);
+    }
+
+    const userMsg: Message = { role: "user", text };
+    setMessages((prev) => [...prev, userMsg]);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId, message: text, model }),
+      });
+
+      const data = await res.json();
+
+      const assistantMsg: Message = {
+        role: "assistant",
+        ...data,
+        isNew: true,
+      };
+
+      setMessages((prev) => [...prev, assistantMsg]);
+
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === chatId
+            ? {
+                ...c,
+                messages: [...c.messages, userMsg, assistantMsg],
+                updatedAt: Date.now(),
+              }
+            : c
+        )
+      );
+    } catch (err) {
+      console.error(err);
+    }
+
     setInput("");
-    setTimeout(() => {
-      inputRef.current?.focus();
-      setIsTypingActive(true);
-    }, 0);
+    setLoading(false);
   }
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -110,148 +272,377 @@ export default function ChatPage() {
     }
   }
 
-  /* ---------------- Close dropdowns ---------------- */
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
-        setModelOpen(false);
-      }
-    }
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setModelOpen(false);
-    }
-
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onEsc);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onEsc);
-    };
-  }, []);
-
-  function handleToggle() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("sidebar-collapsed", String(next));
-      } catch {}
-      return next;
-    });
+  function createNewChat() {
+    setActiveChatId(null);
+    setMessages([]);
+    setTypingDone({});
+    setTableDone({});
+    localStorage.setItem("hypeon_active_chat", "new");
   }
+
+  function selectChat(id: string) {
+    const chat = chats.find((c) => c.id === id);
+    if (!chat) return;
+
+    setActiveChatId(id);
+    setMessages(
+      chat.messages.map((m) =>
+        m.role === "assistant" ? { ...m, isNew: false } : m
+      )
+    );
+    setTypingDone({});
+    setTableDone({});
+    localStorage.setItem("hypeon_active_chat", id);
+  }
+
+  function renameChat(id: string, title: string) {
+    setChats((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, title } : c))
+    );
+  }
+
+  function deleteChat(id: string) {
+    setChats((prev) => prev.filter((c) => c.id !== id));
+
+    if (id === activeChatId) {
+      setActiveChatId(null);
+      setMessages([]);
+      setTypingDone({});
+      setTableDone({});
+      localStorage.setItem("hypeon_active_chat", "new");
+    }
+  }
+
+  const InputBox = (
+    <div className={styles.inputCard}>
+      <div className={styles.inputRow}>
+        <span className={styles.textareaIcon}>✨︎</span>
+
+        <textarea
+          ref={inputRef}
+          className={styles.textarea}
+          placeholder={!hasChat ? animatedPlaceholder : ""}
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setIsTypingActive(false);
+          }}
+          onFocus={() => setIsTypingActive(false)}
+          onBlur={() => input.length === 0 && setIsTypingActive(true)}
+          onKeyDown={onKeyDown}
+          rows={2}
+        />
+
+        <div className={styles.BottomBar}>
+<div className={styles.ModelRow}>
+  {/* BASIC */}
+  <button
+    className={`${styles.ModelBox} ${
+      model === "basic" ? styles.active : ""
+    }`}
+    onClick={() =>
+      setModel(model === "basic" ? null : "basic")
+    }
+  >
+     Basic
+  </button>
+
+  {/* PRO */}
+  <button
+    className={`${styles.ModelBox} ${styles.locked}`}
+  >
+    <svg
+  width="14"
+  height="14"
+  viewBox="0 0 24 24"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <path
+    d="M7 10V7a5 5 0 0110 0v3"
+    stroke="#000000"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+  <rect
+    x="5"
+    y="10"
+    width="14"
+    height="10"
+    rx="2"
+    stroke="#000000"
+    strokeWidth={2}
+  />
+</svg>
+  Pro
+  </button>
+</div>
+
+  <button
+    className={styles.SendBtn}
+    onClick={() => sendMessage(input)}
+  >
+    ↑
+  </button>
+</div>
+
+      </div>
+    </div>
+    
+  );
 
   return (
     <div className={styles.chatRoot}>
       <ChatSidebar
         collapsed={collapsed}
-        onToggle={handleToggle}
+        onToggle={() => setCollapsed(!collapsed)}
         onOpenSearch={() => setSearchOpen(true)}
+        chats={chats.map((c) => ({ id: c.id, title: c.title }))}
+        activeChatId={activeChatId}
+        onSelectChat={selectChat}
+        onNewChat={createNewChat}
+        onDeleteChat={deleteChat}
+        onRenameChat={renameChat}
       />
 
       <main className={`${styles.main} ${mounted ? styles.mounted : ""}`}>
         <section className={styles.center}>
-          <div className={styles.heroBlock}>
-            {/* LOGO */}
-            <div
-              className={`${styles.heroLogo} ${
-                mounted ? styles.heroLogoMounted : ""
-              }`}
-            >
-              <Image
-                src="/images/hypeonai_logo.jpg"
-                alt="HypeOn logo"
-                width={85}
-                height={85}
-                className={styles.heroLogoImg}
-                priority
-              />
-            </div>
+          <div className={styles.contentWrapper}>
+            {!hasChat && (
+              <div className={styles.heroBlock}>
+                <div
+                  className={`${styles.heroLogo} ${
+                    mounted ? styles.heroLogoMounted : ""
+                  }`}
+                >
+                  <Image
+                    src="/images/hypeon.png"
+                    alt="HypeOn logo"
+                    width={78}
+                    height={78}
+                    className={styles.heroLogoImg}
+                    priority
+                  />
 
-            <h1 className={styles.heading}>
-             What would you like to analyze?
-            </h1>
-
-            <p className={styles.subHeading}>
-              Explore products, trends, keywords, and market momentum.
-            </p>
-
-            {/* ================= INPUT CARD ================= */}
-            <div className={styles.inputCard}>
-              
-              <div className={styles.inputRow} ref={actionsRef}>
-                <span className={styles.textareaIcon}>✨︎</span>
-                <textarea
-                
-                  ref={inputRef}
-                  className={styles.textarea}
-                  placeholder={animatedPlaceholder}
-                  value={input}
-                  onChange={(e) => {
-                    setInput(e.target.value);
-                    setIsTypingActive(false);
-                  }}
-                  onFocus={() => setIsTypingActive(false)}
-                  onBlur={() => {
-                    if (input.length === 0) setIsTypingActive(true);
-                  }}
-                  onKeyDown={onKeyDown}
-                  rows={2}
-                />
-
-                <div className={styles.BottomBar}>
-                  <div className={styles.Left}>
-                    <button
-                      className={styles.ModelBtn}
-                      onClick={() => setModelOpen((v) => !v)}
-                    >
-                      {model === "basic" ? "HypeOn Basic" : "HypeOn Pro"}
-                      <span className={styles.Arrow}>▾</span>
-                    </button>
-
-                    {modelOpen && (
-                      <div className={styles.ModelMenu}>
-                        <button
-                          onClick={() => {
-                            setModel("basic");
-                            setModelOpen(false);
-                          }}
-                        >
-                          <strong>HypeOn Basic</strong>
-                          <span>Everyday insights</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setModel("pro");
-                            setModelOpen(false);
-                          }}
-                        >
-                          <strong>HypeOn Pro</strong>
-                          <span>Advanced analysis</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    className={styles.SendBtn}
-                    aria-label="Send"
-                    onClick={() => sendMessage(input)}
-                  >
-                    ↑
-                  </button>
                 </div>
+
+                <h1 className={styles.heading}>
+                  What would you like to analyze?
+                </h1>
+                <p className={styles.subHeading}>
+                  Explore products, trends, keywords, and market momentum.
+                </p>
+
+                {InputBox}
+                <div className={styles.exampleSection}>
+  <div className={styles.exampleTitle}>
+    GET STARTED WITH AN EXAMPLE BELOW
+  </div>
+
+ <div className={styles.exampleGrid}>
+
+  {/* Product Trends */}
+  <button
+    className={styles.exampleCard}
+    onClick={() => {
+      setInput("Analyze trending home decor products in the US market");
+      inputRef.current?.focus();
+    }}
+  >
+    <span className={styles.topNotch}>
+      <span className={`${styles.notchIcon} ${styles.green}`}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M4 19V5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M4 19h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M8 15l3-3 3 3 4-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </span>
+    </span>
+
+    <span className={styles.exampleText}>Product trends</span>
+    <span className={styles.examplePreview}>See which products are trending right now.</span>
+  </button>
+
+  {/* Keyword Insights */}
+  <button
+    className={styles.exampleCard}
+    onClick={() => {
+      setInput("Find high-intent keywords customers use to buy products");
+      inputRef.current?.focus();
+    }}
+  >
+    <span className={styles.topNotch}>
+      <span className={`${styles.notchIcon} ${styles.blue}`}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+          <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </span>
+    </span>
+
+    <span className={styles.exampleText}>Keyword insights</span>
+    <span className={styles.examplePreview}>See what customers are searching for before they buy.</span>
+  </button>
+
+  {/* Competitor Analysis */}
+  <button
+    className={styles.exampleCard}
+    onClick={() => {
+      setInput("Compare top competitors in an e-commerce category");
+      inputRef.current?.focus();
+    }}
+  >
+    <span className={styles.topNotch}>
+      <span className={`${styles.notchIcon} ${styles.orange}`}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M7 8h10l-2-2M17 16H7l2 2"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+    </span>
+
+    <span className={styles.exampleText}>Competitor analysis</span>
+    <span className={styles.examplePreview}>See what your competitors sell and how they price it.</span>
+  </button>
+
+  {/* Market Summary */}
+  <button
+    className={styles.exampleCard}
+    onClick={() => {
+      setInput("Summarize key insights from current e-commerce market data");
+      inputRef.current?.focus();
+    }}
+  >
+    <span className={styles.topNotch}>
+      <span className={`${styles.notchIcon} ${styles.purple}`}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="2"/>
+          <path d="M8 14v2M12 10v6M16 12v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </span>
+    </span>
+
+    <span className={styles.exampleText}>Market summary</span>
+    <span className={styles.examplePreview}>See what’s happening in the market at a glance.</span>
+  </button>
+
+</div>
+
+
+</div>
               </div>
-            </div>
-            {/* ================= END INPUT CARD ================= */}
+            )}
+
+            {hasChat && (
+              <div className={styles.chatArea}>
+                {messages.map((msg, i) => {
+                  if (msg.role === "user") {
+                    return (
+                      <div key={i} className={styles.userMsg}>
+                        {msg.text}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={i}>
+                      <div className={styles.plainText}>
+                        {msg.isNew && !typingDone[i] ? (
+                          <TypingSummary
+                            text={msg.summary}
+                            onDone={() =>
+                              setTypingDone((p) => ({ ...p, [i]: true }))
+                            }
+                          />
+                        ) : (
+                          msg.summary
+                            .split("\n")
+                            .map((l, j) => <p key={j}>{l}</p>)
+                        )}
+                      </div>
+
+                      {(!msg.isNew || typingDone[i]) &&  (
+                        <div className={styles.dataCard}>
+                          <table className={styles.table}>
+                            <thead>
+                              <tr>
+                                {msg.table.columns.map((c) => (
+                                  <th key={c}>{c}</th>
+                                ))}
+                              </tr>
+                            </thead>
+
+                           <tbody>
+  {msg.isNew && !tableDone[i] ? (
+    <StreamingTable
+      key={`stream-${i}`}
+      rows={Array.isArray(msg.table.rows) ? msg.table.rows : []}
+      delay={140}
+      onDone={() => {
+        setTableDone((p) => ({ ...p, [i]: true }));
+        setMessages((prev) =>
+          prev.map((m, idx) =>
+            idx === i && m.role === "assistant"
+              ? { ...m, isNew: false }
+              : m
+          )
+        );
+      }}
+    />
+  ) : (
+    Array.isArray(msg.table.rows) &&
+    msg.table.rows.map((row, ri) => {
+      const safeRow =
+        Array.isArray(row)
+          ? row
+          : row && typeof row === "object"
+          ? Object.values(row)
+          : [];
+
+      return (
+        <tr key={ri}>
+          {safeRow.map((cell, ci) => (
+            <td key={ci}>{String(cell ?? "")}</td>
+          ))}
+        </tr>
+      );
+    })
+  )}
+</tbody>
+
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {loading && (
+                  <div className={styles.loading}>Analyzing…</div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+            )}
           </div>
-          
         </section>
+
+        {hasChat && (
+          <div className={styles.inputBottomWrapper}>{InputBox}</div>
+        )}
       </main>
 
       {searchOpen && (
         <SearchChatsModal
           onClose={() => setSearchOpen(false)}
-          chats={MOCK_CHATS}
+          chats={chats.map((c) => ({ id: c.id, title: c.title }))}
+          onSelectChat={selectChat}
+          onNewChat={createNewChat}
         />
       )}
     </div>

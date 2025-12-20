@@ -2,7 +2,23 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(255, 255, 255, 0.6);
+ background:
+    radial-gradient(
+      1200px 600px at 10% 20%,
+      rgba(253, 231, 243, 0.9),
+      transparent 60%
+    ),
+    radial-gradient(
+      1000px 500px at 90% 30%,
+      rgba(232, 240, 255, 0.9),
+      transparent 55%
+    ),
+    radial-gradient(
+      800px 400px at 50% 100%,
+      rgba(243, 232, 255, 0.8),
+      transparent 60%
+    ),
+    #fcfcfd;
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
