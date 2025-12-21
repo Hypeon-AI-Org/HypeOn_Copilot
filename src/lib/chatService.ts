@@ -32,10 +32,13 @@ export interface ChatResponse {
     estimated_cost_usd: number;
   };
   meta?: {
-    llm_calls: number;
-    execution_path: string[];
-    complexity: string;
+    llm_calls?: number;
+    execution_path?: string[];
+    complexity?: string;
     models_used?: Record<string, string>;
+    fallback?: boolean;
+    parse_error?: boolean;
+    [key: string]: any; // Allow additional properties
   };
 }
 
@@ -212,7 +215,8 @@ export class ChatService {
               tokens: 0,
               estimated_cost_usd: 0,
             },
-            meta: parsedContent.meta || responseData.meta || {
+            meta: {
+              ...(parsedContent.meta || responseData.meta || {}),
               fallback: true,
               parse_error: responseData.parse_error || false,
             },
@@ -233,7 +237,7 @@ export class ChatService {
             meta: {
               fallback: true,
               parse_error: true,
-            },
+            } as ChatResponse['meta'],
           };
         }
       }
