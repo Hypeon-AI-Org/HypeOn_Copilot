@@ -574,22 +574,85 @@ export class ChatService {
   /**
    * Test backend connection and CORS
    */
-  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+  async testConnection(): Promise<{ success: boolean; message: string; details?: any; corsIssue?: boolean }> {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'unknown';
+    
     try {
       console.log('Testing connection to:', this.apiBaseUrl);
+      console.log('Frontend origin:', origin);
+      
       const result = await this.healthCheck();
       return {
         success: true,
         message: 'Connection successful',
         details: result,
+        corsIssue: false,
       };
     } catch (error: any) {
+      const isCorsError = error.message.includes('Failed to fetch') || 
+                         error.message.includes('CORS') ||
+                         (error instanceof TypeError && error.message === 'Failed to fetch');
+      
       return {
         success: false,
         message: error.message || 'Connection failed',
+        corsIssue: isCorsError,
         details: {
           apiBaseUrl: this.apiBaseUrl,
-          origin: typeof window !== 'undefined' ? window.location.origin : 'unknown',
+          origin: origin,
+          error: error.message,
+          recommendation: isCorsError ? 
+            `CORS Error: Backend at ${this.apiBaseUrl} must allow requests from ${origin}. ` +
+            `Backend needs to set: Access-Control-Allow-Origin: ${origin}` :
+            'Check backend connectivity and configuration',
+        },
+      };
+    }
+  }
+
+  /**
+   * Test CORS specifically with OPTIONS preflight
+   */
+  async testCORS(): Promise<{ allowed: boolean; details: any }> {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'unknown';
+    
+    try {
+      // Try OPTIONS request (CORS preflight)
+      const response = await fetch(`${this.apiBaseUrl}/health`, {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': origin,
+          'Access-Control-Request-Method': 'GET',
+          'Access-Control-Request-Headers': 'authorization,content-type',
+        },
+      });
+
+      const corsHeaders = {
+        'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
+        'access-control-allow-methods': response.headers.get('access-control-allow-methods'),
+        'access-control-allow-headers': response.headers.get('access-control-allow-headers'),
+        'access-control-allow-credentials': response.headers.get('access-control-allow-credentials'),
+      };
+
+      const allowed = corsHeaders['access-control-allow-origin'] === '*' || 
+                     corsHeaders['access-control-allow-origin'] === origin;
+
+      return {
+        allowed,
+        details: {
+          origin,
+          corsHeaders,
+          status: response.status,
+          statusText: response.statusText,
+        },
+      };
+    } catch (error: any) {
+      return {
+        allowed: false,
+        details: {
+          origin,
+          error: error.message,
+          note: 'OPTIONS request failed - CORS likely not configured',
         },
       };
     }
