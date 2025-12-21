@@ -40,3 +40,10 @@ export function getParentAppOrigin(): string {
   return PARENT_APP_ORIGIN;
 }
 
+/**
+ * Get parent app URL (for redirects)
+ */
+export function getParentAppUrl(): string {
+  return PARENT_APP_ORIGIN;
+}
+
