@@ -192,7 +192,54 @@ export class ChatService {
         );
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      
+      // Handle fallback response format with raw_content
+      if (responseData.raw_content && typeof responseData.raw_content === 'string') {
+        try {
+          // Parse the JSON string in raw_content
+          const parsedContent = JSON.parse(responseData.raw_content);
+          
+          // Extract the actual response data
+          // The parsed content should have: answer, tables, explanation, etc.
+          return {
+            session_id: parsedContent.session_id || responseData.session_id || `fallback-${Date.now()}`,
+            answer: parsedContent.answer || parsedContent.summary || 'Response received',
+            tables: parsedContent.tables || [],
+            explanation: parsedContent.explanation || null,
+            structured_output: parsedContent.structured_output || [],
+            usage: parsedContent.usage || responseData.usage || {
+              tokens: 0,
+              estimated_cost_usd: 0,
+            },
+            meta: parsedContent.meta || responseData.meta || {
+              fallback: true,
+              parse_error: responseData.parse_error || false,
+            },
+          };
+        } catch (parseError: any) {
+          console.warn('Failed to parse raw_content:', parseError);
+          // Fallback: try to extract what we can
+          return {
+            session_id: responseData.session_id || `fallback-${Date.now()}`,
+            answer: responseData.raw_content || 'Unable to parse response',
+            tables: [],
+            explanation: null,
+            structured_output: [],
+            usage: {
+              tokens: 0,
+              estimated_cost_usd: 0,
+            },
+            meta: {
+              fallback: true,
+              parse_error: true,
+            },
+          };
+        }
+      }
+      
+      // Normal response format - return as-is
+      return responseData;
     } catch (error: any) {
       this.handleFetchError(error, '/api/v1/chat');
     }
