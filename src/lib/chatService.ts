@@ -113,6 +113,28 @@ export class ChatService {
   }
 
   /**
+   * Normalize table data to ensure all cell values are strings
+   */
+  private normalizeTableData(tables: any[]): TableData[] {
+    if (!Array.isArray(tables)) return [];
+    
+    return tables.map((table: any) => ({
+      title: String(table.title || ''),
+      headers: Array.isArray(table.headers) 
+        ? table.headers.map((h: any) => String(h ?? ''))
+        : [],
+      rows: Array.isArray(table.rows)
+        ? table.rows.map((row: any) => 
+            Array.isArray(row)
+              ? row.map((cell: any) => String(cell ?? ''))
+              : []
+          )
+        : [],
+      footer: table.footer ? String(table.footer) : null,
+    }));
+  }
+
+  /**
    * Handle fetch errors with better error messages
    */
   private handleFetchError(error: any, endpoint?: string): never {
@@ -205,10 +227,13 @@ export class ChatService {
           
           // Extract the actual response data
           // The parsed content should have: answer, tables, explanation, etc.
+          // Normalize tables to ensure all cell values are strings
+          const normalizedTables = this.normalizeTableData(parsedContent.tables || []);
+          
           return {
             session_id: parsedContent.session_id || responseData.session_id || `fallback-${Date.now()}`,
             answer: parsedContent.answer || parsedContent.summary || 'Response received',
-            tables: parsedContent.tables || [],
+            tables: normalizedTables,
             explanation: parsedContent.explanation || null,
             structured_output: parsedContent.structured_output || [],
             usage: parsedContent.usage || responseData.usage || {
@@ -242,7 +267,11 @@ export class ChatService {
         }
       }
       
-      // Normal response format - return as-is
+      // Normal response format - normalize tables to ensure all values are strings
+      if (responseData.tables && Array.isArray(responseData.tables)) {
+        responseData.tables = this.normalizeTableData(responseData.tables);
+      }
+      
       return responseData;
     } catch (error: any) {
       this.handleFetchError(error, '/api/v1/chat');
