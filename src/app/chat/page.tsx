@@ -482,13 +482,33 @@ export default function ChatPage() {
     }
   }
 
-  function renameChat(id: string, title: string) {
+  async function renameChat(id: string, title: string) {
+    // Update local state optimistically
     setChats((prev) =>
       prev.map((c) => (c.id === id ? { ...c, title } : c))
     );
+
+    // Update backend if we have a token
+    if (token) {
+      try {
+        const { ChatService } = await import('@/lib/chatService');
+        const chatService = new ChatService(apiUrl, token);
+        await chatService.updateSessionTitle(id, title);
+        // Refresh sessions to get updated data
+        await backendLoadSessions();
+      } catch (err: any) {
+        // Revert on error
+        console.error('Failed to update session title:', err);
+        // Reload sessions to revert
+        if (token) {
+          await backendLoadSessions();
+        }
+      }
+    }
   }
 
-  function deleteChat(id: string) {
+  async function deleteChat(id: string) {
+    // Update local state optimistically
     setChats((prev) => prev.filter((c) => c.id !== id));
 
     if (id === activeChatId) {
@@ -497,6 +517,24 @@ export default function ChatPage() {
       setTypingDone({});
       setTableDone({});
       localStorage.setItem("hypeon_active_chat", "new");
+    }
+
+    // Delete from backend if we have a token
+    if (token) {
+      try {
+        const { ChatService } = await import('@/lib/chatService');
+        const chatService = new ChatService(apiUrl, token);
+        await chatService.deleteSession(id);
+        // Refresh sessions list
+        await backendLoadSessions();
+      } catch (err: any) {
+        // Revert on error
+        console.error('Failed to delete session:', err);
+        // Reload sessions to revert
+        if (token) {
+          await backendLoadSessions();
+        }
+      }
     }
   }
 

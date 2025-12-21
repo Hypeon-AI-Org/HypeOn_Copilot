@@ -356,6 +356,99 @@ export class ChatService {
   }
 
   /**
+   * Update session title
+   */
+  async updateSessionTitle(sessionId: string, title: string): Promise<Session> {
+    if (!this.token) {
+      throw new Error('Authentication required');
+    }
+
+    const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ title }),
+    });
+
+    if (response.status === 401) {
+      throw new Error('Authentication required');
+    }
+
+    if (response.status === 403) {
+      throw new Error('You do not have permission to access this session');
+    }
+
+    if (response.status === 400) {
+      const error = await response.json().catch(() => ({ detail: 'Invalid title' }));
+      throw new Error(error.detail || 'Title must be 1-200 characters');
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      throw new Error(error.detail || `Request failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Delete a session
+   */
+  async deleteSession(sessionId: string): Promise<{ message: string }> {
+    if (!this.token) {
+      throw new Error('Authentication required');
+    }
+
+    const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+
+    if (response.status === 401) {
+      throw new Error('Authentication required');
+    }
+
+    if (response.status === 403) {
+      throw new Error('You do not have permission to access this session');
+    }
+
+    if (response.status === 404) {
+      throw new Error('Session not found');
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      throw new Error(error.detail || `Request failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Delete all sessions for the user
+   */
+  async deleteAllSessions(): Promise<{ message: string; deleted_count: number }> {
+    if (!this.token) {
+      throw new Error('Authentication required');
+    }
+
+    const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+
+    if (response.status === 401) {
+      throw new Error('Authentication required');
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      throw new Error(error.detail || `Request failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
    * Get user info
    */
   async getUserInfo(): Promise<UserInfo> {
