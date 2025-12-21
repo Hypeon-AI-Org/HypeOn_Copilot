@@ -229,13 +229,23 @@ export default function ChatGPTSidebar({
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onBlur={() => {
-                    onRenameChat(c.id, renameValue);
+                    if (renameValue.trim() && renameValue !== c.title) {
+                      onRenameChat(c.id, renameValue);
+                    }
                     setRenamingChatId(null);
+                    setRenameValue("");
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
-                      onRenameChat(c.id, renameValue);
+                      e.preventDefault();
+                      if (renameValue.trim() && renameValue !== c.title) {
+                        onRenameChat(c.id, renameValue);
+                      }
                       setRenamingChatId(null);
+                      setRenameValue("");
+                    } else if (e.key === "Escape") {
+                      setRenamingChatId(null);
+                      setRenameValue("");
                     }
                   }}
                   className={styles.renameInput}
