@@ -24,19 +24,32 @@ function getCookie(name: string): string | null {
 /**
  * Get JWT token from multiple sources (parent app compatible)
  * Priority:
- * 1. Cookie from parent app (app.hypeon.ai) - domain=.hypeon.ai
- * 2. Custom key (if provided)
- * 3. localStorage/sessionStorage
- * 4. Environment variable
+ * 1. URL query parameter (from parent app redirect)
+ * 2. Cookie from parent app (app.hypeon.ai) - domain=.hypeon.ai
+ * 3. localStorage access_token (from URL param)
+ * 4. Custom key (if provided)
+ * 5. localStorage/sessionStorage
+ * 6. Environment variable
  */
 export function getToken(customKey?: string): string | null {
   if (typeof window === 'undefined') return null;
+  
+  // Check URL query parameters first (highest priority - from parent app redirect)
+  if (typeof window !== 'undefined' && window.location) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    if (urlToken) return urlToken;
+  }
   
   // Check environment variable for custom key
   const envTokenKey = process.env.NEXT_PUBLIC_TOKEN_KEY;
   const tokenKey = customKey || envTokenKey;
   
-  // First, try to get from cookie (shared across subdomains)
+  // Check access_token in localStorage (set from URL param)
+  const accessToken = localStorage.getItem('access_token');
+  if (accessToken) return accessToken;
+  
+  // Try to get from cookie (shared across subdomains)
   // Parent app should set cookie with domain=.hypeon.ai
   const cookieToken = getCookie(COOKIE_TOKEN_KEY) || 
                        getCookie('access_token') || 
@@ -178,4 +191,38 @@ export function requestTokenFromParent(): void {
     type: 'request_token',
     source: 'copilot.hypeon.ai'
   }, 'https://app.hypeon.ai');
+}
+
+/**
+ * Get user info from localStorage (set from URL parameter)
+ */
+export function getUserFromStorage(): { id: string; name: string; email: string } | null {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const userJson = localStorage.getItem('user');
+    if (userJson) {
+      return JSON.parse(userJson);
+    }
+  } catch (e) {
+    console.error('Failed to parse user from storage:', e);
+  }
+  
+  return null;
+}
+
+/**
+ * Set user info in storage
+ */
+export function setUserInStorage(user: { id: string; name: string; email: string }): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('user', JSON.stringify(user));
+}
+
+/**
+ * Remove user info from storage
+ */
+export function removeUserFromStorage(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('user');
 }

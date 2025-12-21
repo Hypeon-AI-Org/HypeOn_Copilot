@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { initParentAppIntegration, getParentAppOrigin } from '@/lib/parentAppIntegration';
-import { getToken } from '@/lib/auth';
+import { getToken, setToken, setUserInStorage } from '@/lib/auth';
 
 const PARENT_APP_URL = getParentAppOrigin();
 
@@ -10,6 +10,39 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
+    // Read token and user from URL query parameters (from parent app)
+    if (typeof window !== 'undefined' && window.location) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      const urlUser = urlParams.get('user');
+
+      // Store token from URL if provided
+      if (urlToken) {
+        setToken(urlToken);
+        // Also store in access_token key for compatibility
+        localStorage.setItem('access_token', urlToken);
+      }
+
+      // Store user info from URL if provided
+      if (urlUser) {
+        try {
+          const user = JSON.parse(decodeURIComponent(urlUser));
+          setUserInStorage(user);
+        } catch (e) {
+          console.error('Failed to parse user info from URL:', e);
+        }
+      }
+
+      // Clean up URL parameters after reading
+      if (urlToken || urlUser) {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('token');
+        newUrl.searchParams.delete('user');
+        // Use window.history to avoid router issues
+        window.history.replaceState({}, '', newUrl.pathname + (newUrl.search || ''));
+      }
+    }
+
     // Initialize parent app integration
     const cleanup = initParentAppIntegration();
 
@@ -39,7 +72,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       }
     };
 
-    // Initial check
+    // Initial check (after URL params are processed)
     checkTokenAndRedirect();
 
     // Also listen for token updates (in case token arrives after initial check)
