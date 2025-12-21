@@ -907,3 +907,173 @@ background:   linear-gradient(
     transform: translateY(0);
   }
 }
+
+/* ===================== NEW TABLE STYLING ===================== */
+
+/* Table Container */
+.dataTableContainer {
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8f9fa;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+/* Table Title */
+.tableTitle {
+  padding: 0.75rem 1rem;
+  margin: 0;
+  background: #2563eb;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* Table Scroll Wrapper */
+.tableScroll {
+  overflow-x: auto;
+}
+
+/* Table */
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  background: white;
+}
+
+.dataTable th {
+  background: #e5e7eb;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #d1d5db;
+}
+
+.dataTable td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dataTable tr:hover {
+  background: #f3f4f6;
+}
+
+/* Alternating rows */
+.dataTable tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+/* Footer */
+.tableFooter {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-style: italic;
+  background: #f3f4f6;
+  margin: 0;
+}
+
+/* Explanation */
+.explanation {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #eff6ff;
+  border-left: 4px solid #2563eb;
+  border-radius: 0 8px 8px 0;
+}
+
+.explanation p {
+  margin: 0.5rem 0 0 0;
+  color: #1e40af;
+}
+
+.explanation strong {
+  color: #1e40af;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* Answer Content (Markdown) */
+.answerContent {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+  color: #0f172a;
+}
+
+.answerContent p {
+  margin: 0.5rem 0;
+}
+
+.answerContent h1,
+.answerContent h2,
+.answerContent h3,
+.answerContent h4 {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.answerContent ul,
+.answerContent ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.answerContent code {
+  background: #f3f4f6;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: 'Courier New', monospace;
+}
+
+.answerContent pre {
+  background: #f3f4f6;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.answerContent pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Tables Section */
+.tablesSection {
+  margin: 1rem 0;
+}
+
+/* Assistant Message Container */
+.assistantMessage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* User Message */
+.userMessage {
+  align-self: flex-end;
+  background: #eef2ff;
+  padding: 12px 16px;
+  border-radius: 14px;
+  max-width: 70%;
+  margin-left: auto;
+}
+
+/* Responsive tables */
+@media (max-width: 768px) {
+  .dataTableContainer {
+    overflow-x: auto;
+  }
+  
+  .dataTable {
+    min-width: 500px;
+  }
+  
+  .tableScroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}

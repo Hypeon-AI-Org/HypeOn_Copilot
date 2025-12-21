@@ -13,9 +13,18 @@ export interface ChatRequest {
   request_id?: string;
 }
 
+export interface TableData {
+  title: string;
+  headers: string[];
+  rows: string[][];
+  footer?: string | null;
+}
+
 export interface ChatResponse {
   session_id: string;
   answer: string;
+  tables?: TableData[];
+  explanation?: string | null;
   structured_output?: any[];
   usage: {
     tokens: number;
@@ -180,7 +189,7 @@ export class ChatService {
   async chatStream(
     request: ChatRequest,
     onChunk: (chunk: string, done: boolean) => void,
-    onComplete?: (sessionId: string, usage: any) => void
+    onComplete?: (sessionId: string, usage: any, tables?: TableData[], explanation?: string | null) => void
   ): Promise<void> {
     try {
       const requestId = request.request_id || `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -226,7 +235,12 @@ export class ChatService {
             if (data.type === 'chunk') {
               onChunk(data.content, false);
             } else if (data.type === 'done' && onComplete) {
-              onComplete(data.session_id, data.usage);
+              onComplete(
+                data.session_id, 
+                data.usage,
+                data.tables,
+                data.explanation
+              );
             }
           } catch (e) {
             // Ignore parse errors
@@ -240,7 +254,12 @@ export class ChatService {
       try {
         const data = JSON.parse(buffer.slice(6));
         if (data.type === 'done' && onComplete) {
-          onComplete(data.session_id, data.usage);
+          onComplete(
+            data.session_id, 
+            data.usage,
+            data.tables,
+            data.explanation
+          );
         }
       } catch (e) {
         // Ignore parse errors

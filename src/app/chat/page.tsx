@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import SearchChatsModal from "@/components/chatbot/SearchChatsModal";
 import { useHypeonChat } from "@/hooks/useHypeonChat";
 import { getToken, listenForTokenUpdates, requestTokenFromParent } from "@/lib/auth";
+import { ChatMessage } from "@/components/chatbot/ChatMessage";
+import { ChatResponse, TableData } from "@/lib/chatService";
 import styles from "../../styles/chat.module.css";
 
 const ChatSidebar = dynamic(
@@ -24,6 +26,8 @@ type Message =
         rows: (string | number)[][];
       };
       isNew?: boolean;
+      // New format support
+      chatResponse?: ChatResponse;
     };
 
 type ChatSession = {
@@ -202,6 +206,9 @@ export default function ChatPage() {
     }
   }, [backendSessionId]);
 
+  // Store ChatResponse data for assistant messages (keyed by session_id + message content hash)
+  const [chatResponses, setChatResponses] = useState<Map<string, ChatResponse>>(new Map());
+
   // Convert backend messages to UI format
   useEffect(() => {
     const convertedMessages: Message[] = backendMessages.map((msg) => {
@@ -323,6 +330,18 @@ export default function ChatPage() {
       const response = await backendSendMessage(text);
       
       if (response) {
+        // Store ChatResponse for rendering with new format
+        // Use answer content as key to match with messages later
+        if (response.tables || response.explanation) {
+          setChatResponses((prev) => {
+            const newMap = new Map(prev);
+            // Use answer content as key (first 100 chars should be unique enough)
+            const key = `${response.session_id}-${response.answer.substring(0, 100)}`;
+            newMap.set(key, response);
+            return newMap;
+          });
+        }
+
         // Update chat title if new session
         if (!activeChatId && response.session_id) {
           const newChat: ChatSession = {
@@ -718,6 +737,30 @@ export default function ChatPage() {
                     );
                   }
 
+                  // Check if we have a ChatResponse with new format (tables/explanation)
+                  // Try to match by answer content
+                  let chatResponse = msg.chatResponse;
+                  if (!chatResponse && backendSessionId) {
+                    // Find matching response by checking answer content
+                    for (const [key, resp] of chatResponses.entries()) {
+                      if (resp.answer === msg.summary || 
+                          msg.summary.includes(resp.answer.substring(0, 50))) {
+                        chatResponse = resp;
+                        break;
+                      }
+                    }
+                  }
+                  
+                  // Use new ChatMessage component if we have new format data
+                  if (chatResponse && (chatResponse.tables || chatResponse.explanation)) {
+                    return (
+                      <div key={i}>
+                        <ChatMessage response={chatResponse} isUser={false} />
+                      </div>
+                    );
+                  }
+
+                  // Fallback to old format rendering
                   return (
                     <div key={i}>
                       <div className={styles.plainText}>
@@ -735,7 +778,7 @@ export default function ChatPage() {
                         )}
                       </div>
 
-                      {(!msg.isNew || typingDone[i]) &&  (
+                      {(!msg.isNew || typingDone[i]) && msg.table.columns.length > 0 && (
                         <div className={styles.dataCard}>
                           <table className={styles.table}>
                             <thead>
