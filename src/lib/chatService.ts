@@ -112,12 +112,27 @@ export class ChatService {
   /**
    * Handle fetch errors with better error messages
    */
-  private handleFetchError(error: any): never {
+  private handleFetchError(error: any, endpoint?: string): never {
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      throw new Error(
-        `Failed to connect to backend at ${this.apiBaseUrl}. ` +
-        `Please check: 1) Backend URL is correct, 2) Backend is running, 3) CORS is configured on backend.`
-      );
+      const fullUrl = endpoint ? `${this.apiBaseUrl}${endpoint}` : this.apiBaseUrl;
+      const errorMessage = `Failed to connect to backend at ${fullUrl}. ` +
+        `Possible causes:\n` +
+        `1. Backend URL is incorrect (current: ${this.apiBaseUrl})\n` +
+        `2. Backend server is not running\n` +
+        `3. CORS is not configured on backend (backend must allow origin: ${typeof window !== 'undefined' ? window.location.origin : 'unknown'})\n` +
+        `4. Network connectivity issues\n` +
+        `5. SSL certificate issues (if using HTTPS)`;
+      
+      console.error('Fetch Error Details:', {
+        error,
+        apiBaseUrl: this.apiBaseUrl,
+        endpoint,
+        fullUrl,
+        origin: typeof window !== 'undefined' ? window.location.origin : 'unknown',
+        hasToken: !!this.token,
+      });
+      
+      throw new Error(errorMessage);
     }
     throw error;
   }
@@ -179,7 +194,7 @@ export class ChatService {
 
       return await response.json();
     } catch (error: any) {
-      this.handleFetchError(error);
+      this.handleFetchError(error, '/api/v1/chat');
     }
   }
 
@@ -266,7 +281,7 @@ export class ChatService {
       }
     }
     } catch (error: any) {
-      this.handleFetchError(error);
+      this.handleFetchError(error, '/api/v1/chat/stream');
     }
   }
 
@@ -278,20 +293,27 @@ export class ChatService {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions`, {
-      headers: this.getHeaders(),
-    });
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions`, {
+        headers: this.getHeaders(),
+      });
 
-    if (response.status === 401) {
-      throw new Error('Authentication required');
+      if (response.status === 401) {
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `Request failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.message === 'Authentication required' || error.message.includes('Request failed')) {
+        throw error;
+      }
+      this.handleFetchError(error, '/api/v1/sessions');
     }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || `Request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
   }
 
   /**
@@ -302,24 +324,33 @@ export class ChatService {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}`, {
-      headers: this.getHeaders(),
-    });
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}`, {
+        headers: this.getHeaders(),
+      });
 
-    if (response.status === 401) {
-      throw new Error('Authentication required');
+      if (response.status === 401) {
+        throw new Error('Authentication required');
+      }
+
+      if (response.status === 403) {
+        throw new Error('You do not have permission to access this session');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `Request failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.message === 'Authentication required' || 
+          error.message === 'You do not have permission to access this session' ||
+          error.message.includes('Request failed')) {
+        throw error;
+      }
+      this.handleFetchError(error, `/api/v1/sessions/${sessionId}`);
     }
-
-    if (response.status === 403) {
-      throw new Error('You do not have permission to access this session');
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || `Request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
   }
 
   /**
@@ -330,29 +361,38 @@ export class ChatService {
       throw new Error('Authentication required');
     }
 
-    const url = new URL(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}/messages`);
-    if (limit) {
-      url.searchParams.set('limit', limit.toString());
+    try {
+      const url = new URL(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}/messages`);
+      if (limit) {
+        url.searchParams.set('limit', limit.toString());
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: this.getHeaders(),
+      });
+
+      if (response.status === 401) {
+        throw new Error('Authentication required');
+      }
+
+      if (response.status === 403) {
+        throw new Error('You do not have permission to access this session');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `Request failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.message === 'Authentication required' || 
+          error.message === 'You do not have permission to access this session' ||
+          error.message.includes('Request failed')) {
+        throw error;
+      }
+      this.handleFetchError(error, `/api/v1/sessions/${sessionId}/messages`);
     }
-
-    const response = await fetch(url.toString(), {
-      headers: this.getHeaders(),
-    });
-
-    if (response.status === 401) {
-      throw new Error('Authentication required');
-    }
-
-    if (response.status === 403) {
-      throw new Error('You do not have permission to access this session');
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || `Request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
   }
 
   /**
@@ -363,31 +403,41 @@ export class ChatService {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}`, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ title }),
-    });
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ title }),
+      });
 
-    if (response.status === 401) {
-      throw new Error('Authentication required');
+      if (response.status === 401) {
+        throw new Error('Authentication required');
+      }
+
+      if (response.status === 403) {
+        throw new Error('You do not have permission to access this session');
+      }
+
+      if (response.status === 400) {
+        const error = await response.json().catch(() => ({ detail: 'Invalid title' }));
+        throw new Error(error.detail || 'Title must be 1-200 characters');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `Request failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.message === 'Authentication required' || 
+          error.message === 'You do not have permission to access this session' ||
+          error.message.includes('Title must be') ||
+          error.message.includes('Request failed')) {
+        throw error;
+      }
+      this.handleFetchError(error, `/api/v1/sessions/${sessionId}`);
     }
-
-    if (response.status === 403) {
-      throw new Error('You do not have permission to access this session');
-    }
-
-    if (response.status === 400) {
-      const error = await response.json().catch(() => ({ detail: 'Invalid title' }));
-      throw new Error(error.detail || 'Title must be 1-200 characters');
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || `Request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
   }
 
   /**
@@ -398,29 +448,39 @@ export class ChatService {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}`, {
-      method: 'DELETE',
-      headers: this.getHeaders(),
-    });
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      });
 
-    if (response.status === 401) {
-      throw new Error('Authentication required');
+      if (response.status === 401) {
+        throw new Error('Authentication required');
+      }
+
+      if (response.status === 403) {
+        throw new Error('You do not have permission to access this session');
+      }
+
+      if (response.status === 404) {
+        throw new Error('Session not found');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `Request failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.message === 'Authentication required' || 
+          error.message === 'You do not have permission to access this session' ||
+          error.message === 'Session not found' ||
+          error.message.includes('Request failed')) {
+        throw error;
+      }
+      this.handleFetchError(error, `/api/v1/sessions/${sessionId}`);
     }
-
-    if (response.status === 403) {
-      throw new Error('You do not have permission to access this session');
-    }
-
-    if (response.status === 404) {
-      throw new Error('Session not found');
-    }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || `Request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
   }
 
   /**
@@ -431,21 +491,28 @@ export class ChatService {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions`, {
-      method: 'DELETE',
-      headers: this.getHeaders(),
-    });
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      });
 
-    if (response.status === 401) {
-      throw new Error('Authentication required');
+      if (response.status === 401) {
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `Request failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.message === 'Authentication required' || error.message.includes('Request failed')) {
+        throw error;
+      }
+      this.handleFetchError(error, '/api/v1/sessions');
     }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || `Request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
   }
 
   /**
@@ -456,33 +523,76 @@ export class ChatService {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`${this.apiBaseUrl}/api/v1/me`, {
-      headers: this.getHeaders(),
-    });
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/api/v1/me`, {
+        headers: this.getHeaders(),
+      });
 
-    if (response.status === 401) {
-      throw new Error('Authentication required');
+      if (response.status === 401) {
+        throw new Error('Authentication required');
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        throw new Error(error.detail || `Request failed: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      if (error.message === 'Authentication required' || error.message.includes('Request failed')) {
+        throw error;
+      }
+      this.handleFetchError(error, '/api/v1/me');
     }
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || `Request failed: ${response.statusText}`);
-    }
-
-    return await response.json();
   }
 
   /**
    * Health check
    */
   async healthCheck(): Promise<{ status: string; timestamp: string; version: string }> {
-    const response = await fetch(`${this.apiBaseUrl}/health`);
+    try {
+      const healthUrl = `${this.apiBaseUrl}/health`;
+      console.log('Health check:', healthUrl);
+      
+      const response = await fetch(healthUrl);
 
-    if (!response.ok) {
-      throw new Error('Health check failed');
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Health check successful:', result);
+      return result;
+    } catch (error: any) {
+      if (error.message.includes('Health check failed')) {
+        throw error;
+      }
+      this.handleFetchError(error, '/health');
     }
+  }
 
-    return await response.json();
+  /**
+   * Test backend connection and CORS
+   */
+  async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
+    try {
+      console.log('Testing connection to:', this.apiBaseUrl);
+      const result = await this.healthCheck();
+      return {
+        success: true,
+        message: 'Connection successful',
+        details: result,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || 'Connection failed',
+        details: {
+          apiBaseUrl: this.apiBaseUrl,
+          origin: typeof window !== 'undefined' ? window.location.origin : 'unknown',
+        },
+      };
+    }
   }
 }
 
