@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import SearchChatsModal from "@/components/chatbot/SearchChatsModal";
+import { useHypeonChat } from "@/hooks/useHypeonChat";
+import { getToken, listenForTokenUpdates, requestTokenFromParent } from "@/lib/auth";
 import styles from "../../styles/chat.module.css";
 
 const ChatSidebar = dynamic(
@@ -120,10 +122,52 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // Get token from parent app (app.hypeon.ai) cookie or local storage
+  const token = getToken() || process.env.NEXT_PUBLIC_JWT_TOKEN || null;
+  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
+  // Listen for token updates from parent app
+  useEffect(() => {
+    const cleanup = listenForTokenUpdates((newToken) => {
+      if (newToken) {
+        // Token updated from parent app - reload to use new token
+        console.log('Token updated from parent app');
+        window.location.reload();
+      }
+    });
+    
+    // Request token from parent if in iframe
+    if (typeof window !== 'undefined' && window !== window.parent) {
+      requestTokenFromParent();
+    }
+    
+    return cleanup;
+  }, []);
+
+  // Use backend chat hook
+  const {
+    messages: backendMessages,
+    sessionId: backendSessionId,
+    sessions: backendSessions,
+    loading: backendLoading,
+    error: backendError,
+    sendMessage: backendSendMessage,
+    loadSessions: backendLoadSessions,
+    loadSession: backendLoadSession,
+    newChat: backendNewChat,
+    setSession: backendSetSession,
+  } = useHypeonChat({
+    apiUrl,
+    token,
+    autoLoadSessions: !!token,
+  });
+
+  // Local state for UI compatibility
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-
   const [model, setModel] = useState<"basic" | "pro" | null>(null);
+  
+  // Convert backend messages to UI format
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [typingDone, setTypingDone] = useState<Record<number, boolean>>({});
@@ -137,43 +181,113 @@ export default function ChatPage() {
     setTimeout(() => setMounted(true), 60);
   }, []);
 
+  // Sync backend sessions with local chats
+  useEffect(() => {
+    if (backendSessions.length > 0) {
+      const convertedChats: ChatSession[] = backendSessions.map((s) => ({
+        id: s.session_id,
+        title: s.title || 'Untitled Chat',
+        messages: [],
+        updatedAt: new Date(s.last_active_at).getTime(),
+      }));
+      setChats(convertedChats);
+    }
+  }, [backendSessions]);
+
+  // Sync backend session ID with local active chat
+  useEffect(() => {
+    if (backendSessionId) {
+      setActiveChatId(backendSessionId);
+      localStorage.setItem("hypeon_active_chat", backendSessionId);
+    }
+  }, [backendSessionId]);
+
+  // Convert backend messages to UI format
+  useEffect(() => {
+    const convertedMessages: Message[] = backendMessages.map((msg) => {
+      if (msg.role === 'user') {
+        return { role: 'user', text: msg.content };
+      } else {
+        // Try to parse assistant message for structured data
+        let parsedData: any = null;
+        try {
+          // Check if message contains JSON
+          const jsonMatch = msg.content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsedData = JSON.parse(jsonMatch[0]);
+          }
+        } catch (e) {
+          // Not JSON, treat as plain text
+        }
+
+        if (parsedData && parsedData.summary && parsedData.table) {
+          return {
+            role: 'assistant',
+            summary: parsedData.summary,
+            table: parsedData.table,
+            isNew: false,
+          };
+        } else {
+          // Plain text response - create a simple summary and empty table
+          return {
+            role: 'assistant',
+            summary: msg.content,
+            table: {
+              type: 'product_table' as const,
+              columns: [],
+              rows: [],
+            },
+            isNew: false,
+          };
+        }
+      }
+    });
+    setMessages(convertedMessages);
+  }, [backendMessages]);
+
+  // Sync loading state
+  useEffect(() => {
+    setLoading(backendLoading);
+  }, [backendLoading]);
+
   const PLACEHOLDER_TEXT = "Describe what you want to analyze…";
   const [animatedPlaceholder, setAnimatedPlaceholder] = useState("");
   const [isTypingActive, setIsTypingActive] = useState(true);
 
+  // Load sessions from backend on mount
   useEffect(() => {
-    const savedChats = localStorage.getItem("hypeon_chats");
-    const savedActive = localStorage.getItem("hypeon_active_chat");
-
-    if (!savedChats) return;
-
-    const parsed: ChatSession[] = JSON.parse(savedChats);
-    setChats(parsed);
-
-    if (savedActive === "new" || !savedActive) {
-      setActiveChatId(null);
-      setMessages([]);
-      return;
-    }
-
-    const chat = parsed.find((c) => c.id === savedActive);
-    if (chat) {
-      setActiveChatId(chat.id);
-      setMessages(
-        chat.messages.map((m) =>
-          m.role === "assistant" ? { ...m, isNew: false } : m
-        )
-      );
+    if (token) {
+      // Only try to load from backend if we have a token
+      backendLoadSessions().catch((err) => {
+        // Silently handle auth errors - user can still chat
+        if (!err.message?.includes('Authentication required')) {
+          console.error('Failed to load sessions:', err);
+        }
+      });
+      
+      const savedActive = localStorage.getItem("hypeon_active_chat");
+      if (savedActive && savedActive !== "new") {
+        backendLoadSession(savedActive).catch((err) => {
+          // Silently handle auth errors - user can still chat
+          if (!err.message?.includes('Authentication required')) {
+            console.error('Failed to load session:', err);
+          }
+        });
+      }
     } else {
-      setActiveChatId(null);
-      setMessages([]);
-      localStorage.setItem("hypeon_active_chat", "new");
+      // Fallback to local storage if no token
+      const savedChats = localStorage.getItem("hypeon_chats");
+      if (savedChats) {
+        try {
+          const parsed: ChatSession[] = JSON.parse(savedChats);
+          setChats(parsed);
+        } catch (e) {
+          console.error('Failed to parse saved chats:', e);
+        }
+      }
     }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("hypeon_chats", JSON.stringify(chats));
-  }, [chats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     if (!isTypingActive || input.length > 0) return;
@@ -202,20 +316,54 @@ export default function ChatPage() {
   }, [isTypingActive, input]);
 
   async function sendMessage(text: string) {
-    if (!text.trim()) return;
+    if (!text.trim() || loading) return;
 
+    try {
+      // Use backend API
+      const response = await backendSendMessage(text);
+      
+      if (response) {
+        // Update chat title if new session
+        if (!activeChatId && response.session_id) {
+          const newChat: ChatSession = {
+            id: response.session_id,
+            title: text.slice(0, 50),
+            messages: [],
+            updatedAt: Date.now(),
+          };
+          setChats((prev) => [newChat, ...prev]);
+        }
+
+        // Refresh sessions to get updated list
+        if (token) {
+          await backendLoadSessions();
+        }
+      }
+    } catch (err: any) {
+      console.error('Chat error:', err);
+      // Fallback to local API if backend fails
+      if (!token) {
+        await sendMessageLocal(text);
+      } else {
+        alert(err.message || 'Failed to send message. Please try again.');
+      }
+    }
+
+    setInput("");
+  }
+
+  // Fallback local API function (for when backend is not available)
+  async function sendMessageLocal(text: string) {
     let chatId = activeChatId;
 
     if (!chatId) {
       chatId = crypto.randomUUID();
-
       const newChat: ChatSession = {
         id: chatId,
         title: text,
         messages: [],
         updatedAt: Date.now(),
       };
-
       setChats((prev) => [newChat, ...prev]);
       setActiveChatId(chatId);
       localStorage.setItem("hypeon_active_chat", chatId);
@@ -255,10 +403,9 @@ export default function ChatPage() {
       );
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
-
-    setInput("");
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -273,6 +420,7 @@ export default function ChatPage() {
   }
 
   function createNewChat() {
+    backendNewChat();
     setActiveChatId(null);
     setMessages([]);
     setTypingDone({});
@@ -280,19 +428,39 @@ export default function ChatPage() {
     localStorage.setItem("hypeon_active_chat", "new");
   }
 
-  function selectChat(id: string) {
+  async function selectChat(id: string) {
+    if (token) {
+      // Load from backend
+      try {
+        await backendLoadSession(id);
+        setActiveChatId(id);
+        setTypingDone({});
+        setTableDone({});
+      } catch (err: any) {
+        // Don't show error if it's just missing auth - fall back to local
+        if (err.message?.includes('Authentication required')) {
+          console.warn('Session history unavailable without authentication. Using local storage.');
+          // Fall through to local storage fallback
+        } else {
+          console.error('Failed to load session:', err);
+          // Still try local fallback
+        }
+      }
+    }
+    
+    // Fallback to local storage (works with or without token)
     const chat = chats.find((c) => c.id === id);
-    if (!chat) return;
-
-    setActiveChatId(id);
-    setMessages(
-      chat.messages.map((m) =>
-        m.role === "assistant" ? { ...m, isNew: false } : m
-      )
-    );
-    setTypingDone({});
-    setTableDone({});
-    localStorage.setItem("hypeon_active_chat", id);
+    if (chat) {
+      setActiveChatId(id);
+      setMessages(
+        chat.messages.map((m) =>
+          m.role === "assistant" ? { ...m, isNew: false } : m
+        )
+      );
+      setTypingDone({});
+      setTableDone({});
+      localStorage.setItem("hypeon_active_chat", id);
+    }
   }
 
   function renameChat(id: string, title: string) {

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import Portal from "@/components/Portal";
+import { useUserInfo } from "@/hooks/useUserInfo";
 import styles from "../../styles/ChatSidebar.module.css";
 
 /* ================= TYPES ================= */
@@ -74,6 +75,7 @@ export default function ChatGPTSidebar({
   onDeleteChat,
   onRenameChat,
 }: ChatGPTSidebarProps) {
+  const { userInfo } = useUserInfo();
   const [menuChatId, setMenuChatId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{
     top: number;
@@ -82,6 +84,28 @@ export default function ChatGPTSidebar({
 
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (userInfo?.name) {
+      const names = userInfo.name.trim().split(/\s+/);
+      if (names.length >= 2) {
+        return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+      }
+      return userInfo.name.substring(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
+
+  // Get display name
+  const getDisplayName = () => {
+    return userInfo?.name || 'User';
+  };
+
+  // Get plan name
+  const getPlanName = () => {
+    return userInfo?.plan || 'Basic';
+  };
 
   /* CLOSE CONTEXT MENU ON OUTSIDE CLICK */
   useEffect(() => {
@@ -116,7 +140,7 @@ export default function ChatGPTSidebar({
         </div>
 
         <div className={styles.railBottom}>
-          <div className={styles.avatarRail}>YM</div>
+          <div className={styles.avatarRail}>{getUserInitials()}</div>
         </div>
       </aside>
     );
@@ -152,7 +176,7 @@ export default function ChatGPTSidebar({
     r="24"
     fill="rgba(255,255,255,0.25)"
     stroke="rgba(255,255,255,0.35)"
-    stroke-width="1"
+    strokeWidth="1"
   />
 
   
@@ -280,10 +304,10 @@ export default function ChatGPTSidebar({
 
       {/* FOOTER */}
       <div className={styles.footer}>
-        <div className={styles.avatar}>N</div>
+        <div className={styles.avatar}>{getUserInitials()}</div>
         <div>
-          <div className={styles.username}>yash malviya</div>
-          <div className={styles.plan}>Basic</div>
+          <div className={styles.username}>{getDisplayName()}</div>
+          <div className={styles.plan}>{getPlanName()}</div>
         </div>
       </div>
     </aside>

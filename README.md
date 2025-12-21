@@ -1,36 +1,169 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HypeOn Copilot Frontend
+
+Frontend application for HypeOn Copilot - AI-powered e-commerce intelligence platform.
+
+## Features
+
+- 🤖 **AI Chat Interface** - Interactive chat with multi-stage LLM pipeline
+- 💬 **Session Management** - Persistent conversation history
+- 🔐 **Authentication** - JWT token-based authentication
+- 📊 **Structured Responses** - Product and keyword analysis with tables
+- 🎨 **Modern UI** - Clean, responsive design
+
+## Tech Stack
+
+- **Next.js 16** - React framework
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **React 19** - UI library
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your backend URL
+```
+
+### Environment Variables
+
+Create `.env.local`:
+
+```env
+# Backend API Base URL (required)
+NEXT_PUBLIC_API_BASE_URL=https://api.copilot.hypeon.ai
+
+# JWT Token (optional - for session management)
+# NEXT_PUBLIC_JWT_TOKEN=your_jwt_token_here
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Build for production
+npm run build
 
-## Learn More
+# Start production server
+npm start
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├── app/              # Next.js app router pages
+│   ├── chat/         # Chat interface
+│   └── api/          # API routes
+├── components/       # React components
+│   └── chatbot/      # Chat UI components
+├── hooks/            # React hooks
+│   └── useHypeonChat.ts
+├── lib/              # Utilities
+│   ├── chatService.ts # Backend API client
+│   └── auth.ts       # Authentication utilities
+└── styles/           # CSS modules
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Backend Integration
 
-## Deploy on Vercel
+This frontend integrates with the HypeOn Copilot Backend API. The app automatically detects authentication tokens from the parent app (app.hypeon.ai) via cookies or localStorage.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Key Endpoints
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `POST /api/v1/chat` - Send chat messages
+- `GET /api/v1/sessions` - List user sessions (requires auth)
+- `GET /api/v1/sessions/{id}/messages` - Get session history (requires auth)
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Push code to GitHub
+2. Import project in [Vercel](https://vercel.com)
+3. Add environment variables in Vercel dashboard
+4. Deploy
+
+### Other Platforms
+
+```bash
+# Build the application
+npm run build
+
+# The output will be in .next/ directory
+# Deploy according to your platform's Next.js instructions
+```
+
+### Environment Variables for Production
+
+Make sure to set these in your deployment platform:
+
+- `NEXT_PUBLIC_API_BASE_URL` - Your backend API URL
+- `NEXT_PUBLIC_JWT_TOKEN` (optional) - For authenticated features
+
+## Features
+
+### Chat Interface
+
+- Real-time chat with AI assistant
+- Multi-stage LLM responses
+- Structured data display (tables)
+- Session persistence
+
+### Session Management
+
+- Create new conversations
+- Load previous sessions
+- Search chat history
+- Rename/delete sessions
+
+### Authentication
+
+- JWT token support
+- Optional authentication (chat works without token)
+- Automatic token validation
+- Graceful fallback for unauthenticated users
+
+## Development
+
+### Code Style
+
+- TypeScript for type safety
+- ESLint for code quality
+- Prettier for formatting
+
+### Testing
+
+```bash
+# Run linter
+npm run lint
+```
+
+## Support
+
+For issues or questions, check:
+- Browser console for errors
+- Network tab for API requests
+- Backend logs for server-side issues
+- See `FRONTEND_INTEGRATION.md` for detailed API documentation
+
+## License
+
+Private - HypeOn Copilot
