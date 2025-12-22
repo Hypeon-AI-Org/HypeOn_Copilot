@@ -262,6 +262,7 @@ export default function ChatPage() {
           // Not JSON, treat as plain text
         }
 
+        // Handle legacy format (summary + table)
         if (parsedData && parsedData.summary && parsedData.table) {
           return {
             role: 'assistant',
@@ -269,7 +270,29 @@ export default function ChatPage() {
             table: parsedData.table,
             isNew: false,
           };
-        } else {
+        } 
+        // Handle new API format (answer + tables)
+        else if (parsedData && parsedData.answer) {
+          // Extract table data if available
+          const firstTable = parsedData.tables?.[0];
+          const tableColumns = firstTable?.headers || 
+                              firstTable?.columns?.map((c: any) => c.name || c) || 
+                              [];
+          const tableRows = firstTable?.rows || [];
+          
+          return {
+            role: 'assistant',
+            summary: parsedData.answer,
+            table: {
+              type: 'product_table' as const,
+              columns: tableColumns,
+              rows: tableRows,
+            },
+            isNew: false,
+            chatResponse: parsedData,
+          };
+        }
+        else {
           // Plain text response - create a simple summary and empty table
           return {
             role: 'assistant',
