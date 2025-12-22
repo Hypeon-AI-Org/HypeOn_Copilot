@@ -251,7 +251,36 @@ export default function ChatPage() {
       if (msg.role === 'user') {
         return { role: 'user', text: msg.content };
       } else {
-        // Try to parse assistant message for structured data
+        // Check if message has tables directly (from streaming response)
+        if (msg.tables && msg.tables.length > 0) {
+          const firstTable = msg.tables[0];
+          const tableColumns = firstTable?.headers || 
+                              firstTable?.columns?.map((c: any) => c.name || c) || 
+                              [];
+          const tableRows = firstTable?.rows || [];
+          
+          return {
+            role: 'assistant',
+            summary: msg.content,
+            table: {
+              type: 'product_table' as const,
+              columns: tableColumns,
+              rows: tableRows,
+            },
+            isNew: false,
+            // Build chatResponse from message data
+            chatResponse: {
+              session_id: msg.session_id,
+              answer: msg.content,
+              tables: msg.tables,
+              insights: msg.insights,
+              artifacts: msg.artifacts,
+              explanation: msg.explanation,
+            },
+          };
+        }
+
+        // Fallback: Try to parse assistant message for structured data (legacy support)
         let parsedData: any = null;
         try {
           // Check if message contains JSON
@@ -272,7 +301,7 @@ export default function ChatPage() {
             isNew: false,
           };
         } 
-        // Handle new API format (answer + tables)
+        // Handle new API format (answer + tables from JSON)
         else if (parsedData && parsedData.answer) {
           // Extract table data if available
           const firstTable = parsedData.tables?.[0];

@@ -113,6 +113,11 @@ export interface Message {
   content: string;
   token_count?: number;
   created_at: string;
+  // Extended fields for streaming responses
+  tables?: TableData[];
+  insights?: Insight[];
+  artifacts?: Artifact[];
+  explanation?: string | null;
 }
 
 export interface UserInfo {

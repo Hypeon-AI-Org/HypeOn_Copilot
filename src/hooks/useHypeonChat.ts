@@ -181,13 +181,18 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
               localStorage.setItem('current_session_id', newSessionId);
             }
 
-            // Add assistant message when complete
+            // Add assistant message when complete - include tables and other structured data
             const assistantMessage: Message = {
               message_id: `msg-${Date.now()}`,
               session_id: newSessionId,
               role: 'assistant',
               content: assistantContent,
               created_at: new Date().toISOString(),
+              // Include structured data from streaming response
+              tables: tables || [],
+              insights: insights || [],
+              artifacts: artifacts || [],
+              explanation: explanation || null,
             };
 
             setMessages((prev) => [...prev, assistantMessage]);
