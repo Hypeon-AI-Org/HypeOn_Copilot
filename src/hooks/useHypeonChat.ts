@@ -22,12 +22,18 @@ export interface UseHypeonChatReturn {
   loading: boolean;
   error: string | null;
   currentSession: Session | null;
+  progress: {
+    stage: string;
+    progress: number;
+    message: string;
+  } | null;
 
   // Actions
   sendMessage: (message: string) => Promise<ChatResponse | null>;
   sendMessageStream: (
     message: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    onProgress?: (stage: string, progress: number, message: string) => void
   ) => Promise<void>;
   loadSessions: () => Promise<void>;
   loadSession: (sessionId: string) => Promise<void>;
@@ -45,6 +51,7 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
+  const [progress, setProgress] = useState<{ stage: string; progress: number; message: string } | null>(null);
 
   const chatService = new ChatService(apiUrl || API_BASE_URL, token);
 
@@ -129,11 +136,16 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
   );
 
   const sendMessageStream = useCallback(
-    async (message: string, onChunk: (chunk: string) => void): Promise<void> => {
+    async (
+      message: string, 
+      onChunk: (chunk: string) => void,
+      onProgress?: (stage: string, progress: number, message: string) => void
+    ): Promise<void> => {
       if (!message.trim() || loading) return;
 
       setLoading(true);
       setError(null);
+      setProgress({ stage: 'routing', progress: 0, message: 'Connecting...' });
 
       // Add user message optimistically
       const userMessage: Message = {
@@ -179,15 +191,23 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
             };
 
             setMessages((prev) => [...prev, assistantMessage]);
+            setProgress(null); // Clear progress when done
 
             // Refresh sessions
             if (token) {
               refreshSessions().catch(console.error);
             }
+          },
+          (stage: string, progressValue: number, statusMessage: string) => {
+            setProgress({ stage, progress: progressValue, message: statusMessage });
+            if (onProgress) {
+              onProgress(stage, progressValue, statusMessage);
+            }
           }
         );
       } catch (err: any) {
         setError(err.message || 'Failed to send message');
+        setProgress(null);
         // Remove optimistic user message on error
         setMessages((prev) => prev.filter((m) => m.message_id !== userMessage.message_id));
         throw err;
@@ -280,6 +300,7 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
     loading,
     error,
     currentSession,
+    progress,
     sendMessage,
     sendMessageStream,
     loadSessions,

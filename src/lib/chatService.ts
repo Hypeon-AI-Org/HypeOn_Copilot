@@ -370,7 +370,8 @@ export class ChatService {
   async chatStream(
     request: ChatRequest,
     onChunk: (chunk: string, done: boolean) => void,
-    onComplete?: (sessionId: string, tables?: TableData[], explanation?: string | null, insights?: Insight[], artifacts?: Artifact[]) => void
+    onComplete?: (sessionId: string, tables?: TableData[], explanation?: string | null, insights?: Insight[], artifacts?: Artifact[]) => void,
+    onProgress?: (stage: string, progress: number, message: string) => void
   ): Promise<void> {
     try {
       const requestId = request.request_id || `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -416,32 +417,57 @@ export class ChatService {
             
             // Handle new typed events
             switch (data.type) {
-              case 'token':              // Changed from "chunk"
+              case 'progress':           // NEW - Real-time progress updates
+                if (onProgress) {
+                  onProgress(
+                    data.stage || 'unknown',
+                    data.progress || 0,
+                    data.message || 'Processing...'
+                  );
+                }
+                break;
+              
+              case 'token':              // Text content chunks
               case 'chunk':              // Legacy support
                 onChunk(data.content, false);
+                // Update progress during streaming (estimate 0.7-0.95)
+                if (onProgress) {
+                  onProgress('streaming', 0.7, 'Streaming response...');
+                }
                 break;
               
-              case 'stage_start':        // NEW
-                // Optional: could emit stage progress events
-                console.debug('Stage started:', data.stage, data.stage_index, data.total_stages);
-                break;
-              
-              case 'stage_complete':     // NEW
-                // Optional: could emit stage completion events
+              case 'stage_complete':     // Stage finished
+                if (onProgress) {
+                  const stageMessages: Record<string, string> = {
+                    routing: 'Request processed',
+                    enhance: 'Question optimized',
+                    research: 'Research complete',
+                    analysis: 'Analysis complete',
+                    compose: 'Response ready'
+                  };
+                  onProgress(
+                    data.stage || 'unknown',
+                    data.progress || 0.5,
+                    stageMessages[data.stage] || 'Stage complete'
+                  );
+                }
                 console.debug('Stage completed:', data.stage, data.success);
                 break;
               
-              case 'table':              // NEW
+              case 'table':              // Structured table data
                 // Optional: could render table incrementally
                 console.debug('Table received:', data.table);
                 break;
               
-              case 'insight':            // NEW
+              case 'insight':            // Insight data
                 // Optional: could render insights incrementally
                 console.debug('Insight received:', data.insight);
                 break;
               
-              case 'done':               // Updated structure
+              case 'done':               // Final completion
+                if (onProgress) {
+                  onProgress('done', 1.0, 'Complete');
+                }
                 if (onComplete) {
                   const normalizedTables = data.tables 
                     ? this.normalizeTableData(data.tables)
@@ -456,7 +482,10 @@ export class ChatService {
                 }
                 break;
               
-              case 'error':              // NEW
+              case 'error':              // Error occurred
+                if (onProgress) {
+                  onProgress('error', 0, `Error: ${data.error || 'Unknown error'}`);
+                }
                 throw new Error(data.error || 'Streaming error occurred');
               
               default:

@@ -7,6 +7,7 @@ import SearchChatsModal from "@/components/chatbot/SearchChatsModal";
 import { useHypeonChat } from "@/hooks/useHypeonChat";
 import { getToken, listenForTokenUpdates, requestTokenFromParent } from "@/lib/auth";
 import { ChatMessage } from "@/components/chatbot/ChatMessage";
+import { ProgressIndicator } from "@/components/chatbot/ProgressIndicator";
 import { ChatResponse, TableData } from "@/lib/chatService";
 import { quickCORSTest } from "@/utils/corsDiagnostics";
 import styles from "../../styles/chat.module.css";
@@ -186,6 +187,7 @@ export default function ChatPage() {
     sessions: backendSessions,
     loading: backendLoading,
     error: backendError,
+    progress: backendProgress,
     sendMessage: backendSendMessage,
     loadSessions: backendLoadSessions,
     loadSession: backendLoadSession,
@@ -954,7 +956,17 @@ export default function ChatPage() {
                 })}
 
                 {loading && (
-                  <div className={styles.loading}>Analyzing…</div>
+                  <>
+                    {backendProgress ? (
+                      <ProgressIndicator
+                        progress={backendProgress.progress}
+                        status={backendProgress.message}
+                        stage={backendProgress.stage}
+                      />
+                    ) : (
+                      <div className={styles.loading}>Analyzing…</div>
+                    )}
+                  </>
                 )}
                 <div ref={chatEndRef} />
               </div>
