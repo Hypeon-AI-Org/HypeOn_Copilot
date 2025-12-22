@@ -994,6 +994,150 @@ background:   linear-gradient(
   margin-bottom: 0.25rem;
 }
 
+/* Table Description */
+.tableDescription {
+  padding: 0.5rem 1rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Table Unit (in header) */
+.unit {
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.7;
+  margin-left: 0.25rem;
+}
+
+/* Insights Section */
+.insightsSection {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #f0f9ff;
+  border-radius: 8px;
+  border-left: 4px solid #0ea5e9;
+}
+
+.insightsTitle {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0c4a6e;
+}
+
+.insightItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e0f2fe;
+}
+
+.insightItem:last-child {
+  margin-bottom: 0;
+}
+
+.insightItem[data-category="recommendation"] {
+  border-left: 3px solid #10b981;
+}
+
+.insightItem[data-category="finding"] {
+  border-left: 3px solid #3b82f6;
+}
+
+.insightItem[data-category="warning"] {
+  border-left: 3px solid #f59e0b;
+}
+
+.insightIcon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.insightText {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #1e293b;
+  line-height: 1.5;
+}
+
+.insightConfidence {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-style: italic;
+  flex-shrink: 0;
+}
+
+/* Artifacts Section */
+.artifactsSection {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.artifactsTitle {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.artifactItem {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.artifactItem:last-child {
+  margin-bottom: 0;
+}
+
+.artifactHeader {
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.artifactHeader strong {
+  color: #374151;
+}
+
+.artifactData {
+  margin: 0.5rem 0;
+}
+
+.artifactData pre {
+  margin: 0;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  overflow-x: auto;
+  color: #1f2937;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.artifactMetadata {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.artifactMetadata small {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
 /* Answer Content (Markdown) */
 .answerContent {
   margin-bottom: 1rem;

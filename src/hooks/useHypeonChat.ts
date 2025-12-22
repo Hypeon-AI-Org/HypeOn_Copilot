@@ -162,7 +162,7 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
             assistantContent += chunk;
             onChunk(chunk);
           },
-          (newSessionId: string) => {
+          (newSessionId: string, tables, explanation, insights, artifacts) => {
             // Update session ID if new conversation
             if (!sessionId) {
               setSessionId(newSessionId);

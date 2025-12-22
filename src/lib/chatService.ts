@@ -13,32 +13,87 @@ export interface ChatRequest {
   request_id?: string;
 }
 
+// Column Metadata for enhanced table rendering
+export interface ColumnMetadata {
+  name: string;
+  type: "string" | "number" | "currency" | "percentage" | "date" | "datetime" | "boolean" | "url" | "email";
+  unit?: string;               // e.g., "USD", "kg", "%"
+  description?: string;
+  format?: string;             // e.g., "0.2f" for decimals
+}
+
 export interface TableData {
+  id?: string;                 // NEW (optional)
   title: string;
-  headers: string[];
+  description?: string;        // NEW (optional)
+  columns?: ColumnMetadata[];  // NEW (preferred)
+  headers?: string[];          // DEPRECATED (kept for backward compat)
   rows: string[][];
   footer?: string | null;
 }
 
+// New: Insights
+export interface Insight {
+  id?: string;
+  text: string;
+  category?: string;           // e.g., "recommendation", "finding", "warning"
+  confidence?: number;         // 0.0 to 1.0
+}
+
+// New: Artifacts
+export interface Artifact {
+  type: string;                // e.g., "product", "score", "signal"
+  data: Record<string, any>;
+  metadata?: Record<string, any>;
+}
+
+// Optional: Debug Response (only if X-Debug: true header sent)
+export interface StageExecutionInfo {
+  stage: string;
+  tokens?: number;
+  latency_ms?: number;
+  success: boolean;
+  error?: string;
+}
+
+export interface DebugResponse {
+  execution_path: string[];
+  complexity?: string;
+  stages: StageExecutionInfo[];
+  models_used: Record<string, string>;
+  web_search_triggered: boolean;
+  enhancement_applied: boolean;
+  total_latency_ms?: number;
+  latency_per_stage?: Record<string, number>;
+  warnings: string[];
+}
+
+// Updated v1 Response
 export interface ChatResponse {
+  version?: "v1";              // NEW (optional, defaults to v1)
   session_id: string;
   answer: string;
   tables?: TableData[];
   explanation?: string | null;
-  structured_output?: any[];
-  usage: {
+  insights?: Insight[];         // NEW (optional)
+  artifacts?: Artifact[];      // NEW (optional)
+  timestamp?: string;          // NEW (optional)
+  debug?: DebugResponse;       // NEW (optional, only if X-Debug header)
+  // Legacy fields (deprecated, kept for backward compatibility)
+  structured_output?: any[];   // DEPRECATED
+  usage?: {                    // DEPRECATED (removed from user-facing response)
     tokens: number;
     tokens_per_stage?: Record<string, number>;
     estimated_cost_usd: number;
   };
-  meta?: {
+  meta?: {                     // DEPRECATED (removed from user-facing response)
     llm_calls?: number;
     execution_path?: string[];
     complexity?: string;
     models_used?: Record<string, string>;
     fallback?: boolean;
     parse_error?: boolean;
-    [key: string]: any; // Allow additional properties
+    [key: string]: any;
   };
 }
 
@@ -95,9 +150,10 @@ export class ChatService {
   /**
    * Get authentication headers
    */
-  private getHeaders(requestId?: string): HeadersInit {
+  private getHeaders(requestId?: string, includeDebug?: boolean): HeadersInit {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
+      'X-API-Version': 'v1',  // Optional, but explicit
     };
 
     if (this.token) {
@@ -109,29 +165,57 @@ export class ChatService {
       headers['X-Request-ID'] = requestId;
     }
 
+    // Add debug header if requested (for development)
+    if (includeDebug) {
+      headers['X-Debug'] = 'true';
+    }
+
     return headers;
   }
 
   /**
    * Normalize table data to ensure all cell values are strings
+   * Supports both new (columns) and legacy (headers) format
    */
   private normalizeTableData(tables: any[]): TableData[] {
     if (!Array.isArray(tables)) return [];
     
-    return tables.map((table: any) => ({
-      title: String(table.title || ''),
-      headers: Array.isArray(table.headers) 
-        ? table.headers.map((h: any) => String(h ?? ''))
-        : [],
-      rows: Array.isArray(table.rows)
-        ? table.rows.map((row: any) => 
-            Array.isArray(row)
-              ? row.map((cell: any) => String(cell ?? ''))
-              : []
-          )
-        : [],
-      footer: table.footer ? String(table.footer) : null,
-    }));
+    return tables.map((table: any) => {
+      const normalized: TableData = {
+        id: table.id ? String(table.id) : undefined,
+        title: String(table.title || ''),
+        description: table.description ? String(table.description) : undefined,
+        rows: Array.isArray(table.rows)
+          ? table.rows.map((row: any) => 
+              Array.isArray(row)
+                ? row.map((cell: any) => String(cell ?? ''))
+                : []
+            )
+          : [],
+        footer: table.footer ? String(table.footer) : null,
+      };
+
+      // Support new columns format (preferred)
+      if (Array.isArray(table.columns)) {
+        normalized.columns = table.columns.map((col: any) => ({
+          name: String(col.name || ''),
+          type: col.type || 'string',
+          unit: col.unit ? String(col.unit) : undefined,
+          description: col.description ? String(col.description) : undefined,
+          format: col.format ? String(col.format) : undefined,
+        }));
+      }
+
+      // Support legacy headers format (backward compatibility)
+      if (Array.isArray(table.headers)) {
+        normalized.headers = table.headers.map((h: any) => String(h ?? ''));
+      } else if (!normalized.columns) {
+        // If neither columns nor headers, create empty headers
+        normalized.headers = [];
+      }
+
+      return normalized;
+    });
   }
 
   /**
@@ -230,39 +314,36 @@ export class ChatService {
           // Normalize tables to ensure all cell values are strings
           const normalizedTables = this.normalizeTableData(parsedContent.tables || []);
           
-          return {
+          const fallbackResponse: ChatResponse = {
+            version: parsedContent.version || 'v1',
             session_id: parsedContent.session_id || responseData.session_id || `fallback-${Date.now()}`,
             answer: parsedContent.answer || parsedContent.summary || 'Response received',
             tables: normalizedTables,
             explanation: parsedContent.explanation || null,
-            structured_output: parsedContent.structured_output || [],
-            usage: parsedContent.usage || responseData.usage || {
-              tokens: 0,
-              estimated_cost_usd: 0,
-            },
-            meta: {
+            insights: parsedContent.insights || [],
+            artifacts: parsedContent.artifacts || [],
+            timestamp: parsedContent.timestamp || responseData.timestamp,
+            debug: parsedContent.debug || responseData.debug,
+            // Legacy fields (optional, for backward compatibility)
+            structured_output: parsedContent.structured_output,
+            usage: parsedContent.usage || responseData.usage,
+            meta: parsedContent.meta || responseData.meta ? {
               ...(parsedContent.meta || responseData.meta || {}),
               fallback: true,
               parse_error: responseData.parse_error || false,
-            },
+            } : undefined,
           };
+          
+          return fallbackResponse;
         } catch (parseError: any) {
           console.warn('Failed to parse raw_content:', parseError);
           // Fallback: try to extract what we can
           return {
+            version: 'v1',
             session_id: responseData.session_id || `fallback-${Date.now()}`,
             answer: responseData.raw_content || 'Unable to parse response',
             tables: [],
             explanation: null,
-            structured_output: [],
-            usage: {
-              tokens: 0,
-              estimated_cost_usd: 0,
-            },
-            meta: {
-              fallback: true,
-              parse_error: true,
-            } as ChatResponse['meta'],
           };
         }
       }
@@ -272,7 +353,12 @@ export class ChatService {
         responseData.tables = this.normalizeTableData(responseData.tables);
       }
       
-      return responseData;
+      // Ensure version is set (defaults to v1)
+      if (!responseData.version) {
+        responseData.version = 'v1';
+      }
+      
+      return responseData as ChatResponse;
     } catch (error: any) {
       this.handleFetchError(error, '/api/v1/chat');
     }
@@ -284,7 +370,7 @@ export class ChatService {
   async chatStream(
     request: ChatRequest,
     onChunk: (chunk: string, done: boolean) => void,
-    onComplete?: (sessionId: string, usage: any, tables?: TableData[], explanation?: string | null) => void
+    onComplete?: (sessionId: string, tables?: TableData[], explanation?: string | null, insights?: Insight[], artifacts?: Artifact[]) => void
   ): Promise<void> {
     try {
       const requestId = request.request_id || `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -327,18 +413,59 @@ export class ChatService {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6));
-            if (data.type === 'chunk') {
-              onChunk(data.content, false);
-            } else if (data.type === 'done' && onComplete) {
-              onComplete(
-                data.session_id, 
-                data.usage,
-                data.tables,
-                data.explanation
-              );
+            
+            // Handle new typed events
+            switch (data.type) {
+              case 'token':              // Changed from "chunk"
+              case 'chunk':              // Legacy support
+                onChunk(data.content, false);
+                break;
+              
+              case 'stage_start':        // NEW
+                // Optional: could emit stage progress events
+                console.debug('Stage started:', data.stage, data.stage_index, data.total_stages);
+                break;
+              
+              case 'stage_complete':     // NEW
+                // Optional: could emit stage completion events
+                console.debug('Stage completed:', data.stage, data.success);
+                break;
+              
+              case 'table':              // NEW
+                // Optional: could render table incrementally
+                console.debug('Table received:', data.table);
+                break;
+              
+              case 'insight':            // NEW
+                // Optional: could render insights incrementally
+                console.debug('Insight received:', data.insight);
+                break;
+              
+              case 'done':               // Updated structure
+                if (onComplete) {
+                  const normalizedTables = data.tables 
+                    ? this.normalizeTableData(data.tables)
+                    : undefined;
+                  onComplete(
+                    data.session_id,
+                    normalizedTables,
+                    data.explanation || null,
+                    data.insights || [],
+                    data.artifacts || []
+                  );
+                }
+                break;
+              
+              case 'error':              // NEW
+                throw new Error(data.error || 'Streaming error occurred');
+              
+              default:
+                // Unknown event type, ignore
+                break;
             }
           } catch (e) {
-            // Ignore parse errors
+            // Ignore parse errors for unknown formats
+            console.warn('Failed to parse streaming event:', e);
           }
         }
       }
@@ -349,11 +476,15 @@ export class ChatService {
       try {
         const data = JSON.parse(buffer.slice(6));
         if (data.type === 'done' && onComplete) {
+          const normalizedTables = data.tables 
+            ? this.normalizeTableData(data.tables)
+            : undefined;
           onComplete(
-            data.session_id, 
-            data.usage,
-            data.tables,
-            data.explanation
+            data.session_id,
+            normalizedTables,
+            data.explanation || null,
+            data.insights || [],
+            data.artifacts || []
           );
         }
       } catch (e) {

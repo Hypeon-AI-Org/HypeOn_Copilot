@@ -335,7 +335,7 @@ export default function ChatPage() {
       if (response) {
         // Store ChatResponse for rendering with new format
         // Use answer content as key to match with messages later
-        if (response.tables || response.explanation) {
+        if (response.tables || response.explanation || response.insights || response.artifacts) {
           setChatResponses((prev) => {
             const newMap = new Map(prev);
             // Use answer content as key (first 100 chars should be unique enough)
