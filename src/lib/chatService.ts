@@ -629,7 +629,18 @@ export class ChatService {
         throw new Error(error.detail || `Request failed: ${response.statusText}`);
       }
 
-      return await response.json();
+      const messages: Message[] = await response.json();
+      
+      // Normalize tables in assistant messages
+      return messages.map((msg) => {
+        if (msg.role === 'assistant' && msg.tables && Array.isArray(msg.tables)) {
+          return {
+            ...msg,
+            tables: this.normalizeTableData(msg.tables),
+          };
+        }
+        return msg;
+      });
     } catch (error: any) {
       if (error.message === 'Authentication required' || 
           error.message === 'You do not have permission to access this session' ||

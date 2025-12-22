@@ -62,13 +62,15 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
     }
   }, [autoLoadSessions, token]);
 
-  // Load session from localStorage on mount
+  // Start with a new chat on mount (user can select old sessions from sidebar)
   useEffect(() => {
     if (token) {
-      const savedSessionId = localStorage.getItem('current_session_id');
-      if (savedSessionId && savedSessionId !== 'new') {
-        loadSession(savedSessionId).catch(console.error);
-      }
+      // Clear any saved session to start fresh
+      localStorage.removeItem('current_session_id');
+      // Reset to new chat state
+      setSessionId(null);
+      setMessages([]);
+      setCurrentSession(null);
     }
   }, [token]);
 
