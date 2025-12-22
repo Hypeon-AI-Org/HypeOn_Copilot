@@ -189,6 +189,7 @@ export default function ChatPage() {
     error: backendError,
     progress: backendProgress,
     sendMessage: backendSendMessage,
+    sendMessageStream: backendSendMessageStream,
     loadSessions: backendLoadSessions,
     loadSession: backendLoadSession,
     newChat: backendNewChat,
@@ -381,40 +382,37 @@ export default function ChatPage() {
   }, [isTypingActive, input]);
 
   async function sendMessage(text: string) {
-    if (!text.trim() || loading) return;
+    if (!text.trim() || backendLoading) return;
+
+    const currentActiveChatId = activeChatId;
 
     try {
-      // Use backend API
-      const response = await backendSendMessage(text);
+      // Use streaming API for real-time progress updates
+      await backendSendMessageStream(
+        text,
+        // onChunk - response text is accumulated by the hook
+        (chunk: string) => {
+          // Chunks are handled internally by the hook
+        },
+        // onProgress - progress is handled by the hook, updates backendProgress state
+        undefined
+      );
       
-      if (response) {
-        // Store ChatResponse for rendering with new format
-        // Use answer content as key to match with messages later
-        if (response.tables || response.explanation || response.insights || response.artifacts) {
-          setChatResponses((prev) => {
-            const newMap = new Map(prev);
-            // Use answer content as key (first 100 chars should be unique enough)
-            const key = `${response.session_id}-${response.answer.substring(0, 100)}`;
-            newMap.set(key, response);
-            return newMap;
-          });
-        }
+      // Streaming complete - response is handled by the hook (adds to backendMessages)
+      // Update chat title if new session
+      if (!currentActiveChatId && backendSessionId) {
+        const newChat: ChatSession = {
+          id: backendSessionId,
+          title: text.slice(0, 50),
+          messages: [],
+          updatedAt: Date.now(),
+        };
+        setChats((prev) => [newChat, ...prev]);
+      }
 
-        // Update chat title if new session
-        if (!activeChatId && response.session_id) {
-          const newChat: ChatSession = {
-            id: response.session_id,
-            title: text.slice(0, 50),
-            messages: [],
-            updatedAt: Date.now(),
-          };
-          setChats((prev) => [newChat, ...prev]);
-        }
-
-        // Refresh sessions to get updated list
-        if (token) {
-          await backendLoadSessions();
-        }
+      // Refresh sessions to get updated list
+      if (token) {
+        await backendLoadSessions();
       }
     } catch (err: any) {
       console.error('Chat error:', err);
@@ -978,7 +976,7 @@ export default function ChatPage() {
                   );
                 })}
 
-                {loading && (
+                {backendLoading && (
                   <>
                     {backendProgress ? (
                       <ProgressIndicator

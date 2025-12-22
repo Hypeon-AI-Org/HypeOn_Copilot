@@ -26,8 +26,8 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
   status, 
   stage 
 }) => {
-  // Don't show if progress is 0 or complete
-  if (progress === 0 || progress >= 1.0) {
+  // Don't show if complete (always show during loading, even at 0%)
+  if (progress >= 1.0) {
     return null;
   }
 
