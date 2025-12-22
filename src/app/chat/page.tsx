@@ -131,6 +131,36 @@ export default function ChatPage() {
   const token = getToken() || process.env.NEXT_PUBLIC_JWT_TOKEN || null;
   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
+  // Redirect to app.hypeon.ai if no token found
+  useEffect(() => {
+    // Skip redirect if we have an env token (for development/testing)
+    if (process.env.NEXT_PUBLIC_JWT_TOKEN) {
+      return;
+    }
+
+    // Check if token exists
+    const currentToken = getToken();
+    
+    if (!currentToken) {
+      // Check if we're in an iframe (give parent app time to send token)
+      const isInIframe = typeof window !== 'undefined' && window !== window.parent;
+      
+      // Wait a bit longer if in iframe to allow parent app to send token
+      const waitTime = isInIframe ? 2000 : 500;
+      
+      const redirectTimer = setTimeout(() => {
+        // Check one more time before redirecting
+        const finalToken = getToken();
+        if (!finalToken) {
+          // Redirect to app.hypeon.ai for authentication
+          window.location.href = 'https://app.hypeon.ai';
+        }
+      }, waitTime);
+
+      return () => clearTimeout(redirectTimer);
+    }
+  }, []);
+
   // Listen for token updates from parent app
   useEffect(() => {
     const cleanup = listenForTokenUpdates((newToken) => {

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { initParentAppIntegration, getParentAppOrigin } from '@/lib/parentAppIntegration';
 import { getToken, setToken, setUserInStorage } from '@/lib/auth';
 
-const PARENT_APP_URL = getParentAppOrigin();
+const PARENT_APP_URL = 'https://app.hypeon.ai';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isChecking, setIsChecking] = useState(true);
@@ -49,20 +49,24 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     // Check if we're in an iframe
     const isInIframe = typeof window !== 'undefined' && window !== window.parent;
 
+    // Skip redirect if we have an env token (for development/testing)
+    const hasEnvToken = !!process.env.NEXT_PUBLIC_JWT_TOKEN;
+
     // Check for token and redirect if not found
     const checkTokenAndRedirect = () => {
       const token = getToken();
       
-      if (!token) {
+      if (!token && !hasEnvToken) {
         // If in iframe, wait longer for token from parent app
-        // If standalone, redirect immediately
-        const waitTime = isInIframe ? 3000 : 1000;
+        // If standalone, redirect more quickly
+        const waitTime = isInIframe ? 2000 : 500;
         
         setTimeout(() => {
           const tokenAfterWait = getToken();
-          if (!tokenAfterWait) {
-            // Redirect to parent app for authentication
+          if (!tokenAfterWait && !hasEnvToken) {
+            // Redirect to app.hypeon.ai for authentication
             window.location.href = PARENT_APP_URL;
+            return;
           } else {
             setIsChecking(false);
           }
@@ -78,7 +82,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     // Also listen for token updates (in case token arrives after initial check)
     const tokenCheckInterval = setInterval(() => {
       const token = getToken();
-      if (token) {
+      if (token || hasEnvToken) {
         setIsChecking(false);
         clearInterval(tokenCheckInterval);
       }
@@ -87,12 +91,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     // Cleanup after max wait time
     const maxWaitTimeout = setTimeout(() => {
       const token = getToken();
-      if (!token) {
-        // Still no token after max wait, redirect
+      if (!token && !hasEnvToken) {
+        // Still no token after max wait, redirect to app.hypeon.ai
         window.location.href = PARENT_APP_URL;
       }
       clearInterval(tokenCheckInterval);
-    }, isInIframe ? 5000 : 2000);
+    }, isInIframe ? 3000 : 1500);
 
     return () => {
       cleanup();
