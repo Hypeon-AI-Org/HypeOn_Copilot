@@ -9,7 +9,6 @@ import { getToken, listenForTokenUpdates, requestTokenFromParent } from "@/lib/a
 import { ChatMessage } from "@/components/chatbot/ChatMessage";
 import { ProgressIndicator } from "@/components/chatbot/ProgressIndicator";
 import { ChatResponse, TableData } from "@/lib/chatService";
-import { quickCORSTest } from "@/utils/corsDiagnostics";
 import styles from "../../styles/chat.module.css";
 
 const ChatSidebar = dynamic(
@@ -448,23 +447,7 @@ export default function ChatPage() {
       
       // Check if it's a CORS/network error
       if (err.message && (err.message.includes('Failed to connect') || err.message.includes('Failed to fetch'))) {
-        console.error('⚠️ CORS/Network Error Detected');
-        console.error('Run testCORS() in browser console for detailed diagnostics');
-        
-        // Try to run CORS diagnostics
-        try {
-          const corsResult = await quickCORSTest();
-          if (!corsResult.corsConfigured) {
-            alert(
-              'CORS Error: Backend at ' + apiUrl + ' must allow requests from ' + 
-              (typeof window !== 'undefined' ? window.location.origin : 'your frontend') + 
-              '\n\nCheck CORS_FIX_GUIDE.md for backend configuration instructions.'
-            );
-            return;
-          }
-        } catch (diagError) {
-          // Diagnostics failed, show generic error
-        }
+        console.error('⚠️ Network Error: Unable to connect to backend at', apiUrl);
       }
       
       // Fallback to local API if backend fails

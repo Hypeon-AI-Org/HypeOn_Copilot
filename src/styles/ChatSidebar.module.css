@@ -6,7 +6,7 @@
   top: 0;
   bottom: 0;
   box-sizing: border-box;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
   color: #111827;
 
 border-top-right-radius: 18px;
@@ -526,7 +526,7 @@ border: 1px solid rgba(255,255,255,0.45);
   padding: 6px;
   min-width: 140px;
 
-  font-family: "Source Serif 4", "Georgia", serif;
+  font-family: var(--font-geist-sans), sans-serif;
   font-weight: 500;
   font-size: 15px;
   color: #1f2937;

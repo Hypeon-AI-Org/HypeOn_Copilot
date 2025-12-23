@@ -115,7 +115,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         height: '100vh',
         flexDirection: 'column',
         gap: '1rem',
-        fontFamily: 'system-ui, -apple-system, sans-serif'
+        fontFamily: 'var(--font-geist-sans), sans-serif'
       }}>
         <div style={{ fontSize: '1.2rem', fontWeight: '500' }}>Loading...</div>
         <div style={{ fontSize: '0.9rem', color: '#666' }}>Checking authentication...</div>

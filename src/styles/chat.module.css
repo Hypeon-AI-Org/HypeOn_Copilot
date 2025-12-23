@@ -23,8 +23,7 @@
     ),
     #fcfcfd;
   color: #111827;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
 }
 
 /* ========= MAIN AREA ========= */
@@ -191,7 +190,7 @@
   font-size: 14px;
   font-weight: 500;
   color: #111827;
- font-family: "Source Serif 4", "Georgia", serif;
+ font-family: var(--font-geist-sans), sans-serif;
   cursor: pointer;
   user-select: none;
 
@@ -1120,7 +1119,7 @@ background:   linear-gradient(
   font-size: 0.8rem;
   overflow-x: auto;
   color: inherit;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: var(--font-geist-mono), monospace;
   opacity: 0.8;
 }
 
@@ -1166,7 +1165,7 @@ background:   linear-gradient(
   padding: 0;
   border-radius: 0;
   font-size: 0.875em;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-geist-mono), monospace;
   opacity: 0.8;
 }
 
