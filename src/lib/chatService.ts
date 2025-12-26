@@ -163,6 +163,27 @@ export class ChatService {
 
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
+      
+      // Log token info in development mode
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          const payload = JSON.parse(atob(this.token.split('.')[1]));
+          const expDate = payload.exp ? new Date(payload.exp * 1000) : null;
+          console.log('🔐 Token being sent to backend:', {
+            hasToken: true,
+            userId: payload.sub || payload.user?.id,
+            expiresAt: expDate?.toISOString() || 'Unknown',
+            expired: payload.exp ? payload.exp * 1000 < Date.now() : true,
+          });
+        } catch (e) {
+          console.warn('⚠️ Could not decode token for logging:', e);
+        }
+      }
+    } else {
+      // Log warning in development if no token
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ No token available - request will be unauthenticated');
+      }
     }
 
     // Add idempotency header if request_id is provided
@@ -229,22 +250,22 @@ export class ChatService {
   private handleFetchError(error: any, endpoint?: string): never {
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       const fullUrl = endpoint ? `${this.apiBaseUrl}${endpoint}` : this.apiBaseUrl;
-      const errorMessage = `Failed to connect to backend at ${fullUrl}. ` +
-        `Possible causes:\n` +
-        `1. Backend URL is incorrect (current: ${this.apiBaseUrl})\n` +
-        `2. Backend server is not running\n` +
-        `3. CORS is not configured on backend (backend must allow origin: ${typeof window !== 'undefined' ? window.location.origin : 'unknown'})\n` +
-        `4. Network connectivity issues\n` +
-        `5. SSL certificate issues (if using HTTPS)`;
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'unknown';
       
-      console.error('Fetch Error Details:', {
-        error,
-        apiBaseUrl: this.apiBaseUrl,
-        endpoint,
-        fullUrl,
-        origin: typeof window !== 'undefined' ? window.location.origin : 'unknown',
-        hasToken: !!this.token,
-      });
+      // Only log detailed error in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('🔴 Backend Connection Error:', {
+          endpoint: endpoint || 'root',
+          apiBaseUrl: this.apiBaseUrl,
+          fullUrl,
+          origin,
+          hasToken: !!this.token,
+          errorType: error.constructor.name,
+        });
+      }
+      
+      const errorMessage = `Backend unavailable at ${this.apiBaseUrl}. ` +
+        `Please ensure the backend server is running.`;
       
       throw new Error(errorMessage);
     }

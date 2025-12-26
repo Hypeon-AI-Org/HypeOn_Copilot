@@ -120,6 +120,65 @@ export function getTokenPayload(token: string): any | null {
 }
 
 /**
+ * Get token expiration date
+ */
+export function getTokenExpirationDate(token: string): Date | null {
+  try {
+    const payload = getTokenPayload(token);
+    if (payload && payload.exp) {
+      return new Date(payload.exp * 1000);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get token expiration info (for debugging/verification)
+ */
+export function getTokenInfo(token: string): {
+  valid: boolean;
+  expired: boolean;
+  expirationDate: Date | null;
+  expirationTimestamp: number | null;
+  payload: any | null;
+} | null {
+  try {
+    const payload = getTokenPayload(token);
+    if (!payload) {
+      return {
+        valid: false,
+        expired: true,
+        expirationDate: null,
+        expirationTimestamp: null,
+        payload: null,
+      };
+    }
+
+    const expTimestamp = payload.exp;
+    const expirationDate = expTimestamp ? new Date(expTimestamp * 1000) : null;
+    const expired = expTimestamp ? expTimestamp * 1000 < Date.now() : true;
+
+    return {
+      valid: true,
+      expired,
+      expirationDate,
+      expirationTimestamp: expTimestamp || null,
+      payload,
+    };
+  } catch {
+    return {
+      valid: false,
+      expired: true,
+      expirationDate: null,
+      expirationTimestamp: null,
+      payload: null,
+    };
+  }
+}
+
+/**
  * Check if user is authenticated
  */
 export function isAuthenticated(): boolean {

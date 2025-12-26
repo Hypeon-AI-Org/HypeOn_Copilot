@@ -236,8 +236,22 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
       setSessions(loadedSessions);
       setError(null);
     } catch (err: any) {
-      setError(err.message || 'Failed to load sessions');
-      setSessions([]);
+      // Handle connection errors gracefully - don't show error if backend is unavailable
+      const isConnectionError = err.message?.includes('Backend unavailable') || 
+                               err.message?.includes('Failed to connect') ||
+                               err.message?.includes('Failed to fetch');
+      
+      if (isConnectionError) {
+        // Silently fail - backend is not running, which is expected in some dev scenarios
+        setSessions([]);
+        setError(null);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ Backend not available - sessions will not be loaded. Start the backend server to enable session management.');
+        }
+      } else {
+        setError(err.message || 'Failed to load sessions');
+        setSessions([]);
+      }
     }
   }, [token, chatService]);
 
@@ -265,12 +279,26 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
         localStorage.setItem('current_session_id', sid);
         setError(null);
       } catch (err: any) {
-        // Don't show error if it's just missing auth - user can still chat
+        // Handle connection errors gracefully
+        const isConnectionError = err.message?.includes('Backend unavailable') || 
+                                 err.message?.includes('Failed to connect') ||
+                                 err.message?.includes('Failed to fetch');
+        
+        // Don't show error if it's just missing auth or backend unavailable - user can still chat
         if (err.message?.includes('Authentication required')) {
           console.warn('Session history unavailable: Authentication required. Chat will work without session history.');
           setSessionId(sid);
           setMessages([]);
           setCurrentSession(null);
+        } else if (isConnectionError) {
+          // Backend not available - silently fail
+          setSessionId(sid);
+          setMessages([]);
+          setCurrentSession(null);
+          setError(null);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('⚠️ Backend not available - session history unavailable. Start the backend server to load session history.');
+          }
         } else {
           setError(err.message || 'Failed to load session');
           throw err;

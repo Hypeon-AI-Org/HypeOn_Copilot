@@ -49,7 +49,12 @@ export function useUserInfo() {
         setUserInfo(fullInfo); // Replace with full info from backend
       } catch (err: any) {
         // If backend fetch fails, keep using stored user info
-        console.warn('Failed to fetch full user info from backend, using stored info:', err);
+        const isConnectionError = err.message?.includes('Backend unavailable') || 
+                                 err.message?.includes('Failed to connect') ||
+                                 err.message?.includes('Failed to fetch');
+        if (process.env.NODE_ENV === 'development' && !isConnectionError) {
+          console.warn('Failed to fetch full user info from backend, using stored info:', err);
+        }
       } finally {
         setLoading(false);
       }
@@ -65,10 +70,22 @@ export function useUserInfo() {
       const info = await chatService.getUserInfo();
       setUserInfo(info);
     } catch (err: any) {
-      // Don't show error if it's just missing auth
+      // Handle connection errors gracefully
+      const isConnectionError = err.message?.includes('Backend unavailable') || 
+                               err.message?.includes('Failed to connect') ||
+                               err.message?.includes('Failed to fetch');
+      
+      // Don't show error if it's just missing auth or backend unavailable
       if (err.message?.includes('Authentication required')) {
         setUserInfo(null);
         setError(null);
+      } else if (isConnectionError) {
+        // Backend not available - silently fail, user can still use the app
+        setUserInfo(null);
+        setError(null);
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ Backend not available - user info unavailable. Start the backend server to load user information.');
+        }
       } else {
         setError(err.message || 'Failed to load user info');
         setUserInfo(null);

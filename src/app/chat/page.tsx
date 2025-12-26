@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import SearchChatsModal from "@/components/chatbot/SearchChatsModal";
 import { useHypeonChat } from "@/hooks/useHypeonChat";
-import { getToken, listenForTokenUpdates, requestTokenFromParent } from "@/lib/auth";
+import { getToken, listenForTokenUpdates, requestTokenFromParent, getTokenInfo } from "@/lib/auth";
 import { ChatMessage } from "@/components/chatbot/ChatMessage";
 import { ProgressIndicator } from "@/components/chatbot/ProgressIndicator";
 import { ChatResponse, TableData } from "@/lib/chatService";
@@ -130,6 +130,26 @@ export default function ChatPage() {
   // Get token from parent app (app.hypeon.ai) cookie or local storage
   const token = getToken() || process.env.NEXT_PUBLIC_JWT_TOKEN || null;
   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
+  // Verify token in development mode
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && token) {
+      const tokenInfo = getTokenInfo(token);
+      if (tokenInfo) {
+        console.log('🔍 Token Verification:', {
+          valid: tokenInfo.valid,
+          expired: tokenInfo.expired,
+          expirationDate: tokenInfo.expirationDate?.toISOString() || 'Unknown',
+          userId: tokenInfo.payload?.sub || tokenInfo.payload?.user?.id || 'Unknown',
+          userEmail: tokenInfo.payload?.user?.email || 'Unknown',
+        });
+        
+        if (tokenInfo.expired) {
+          console.warn('⚠️ Token is expired! Please generate a new token.');
+        }
+      }
+    }
+  }, [token]);
 
   // Redirect to app.hypeon.ai if no token found
   useEffect(() => {
@@ -353,8 +373,11 @@ export default function ChatPage() {
     if (token) {
       // Only try to load from backend if we have a token
       backendLoadSessions().catch((err) => {
-        // Silently handle auth errors - user can still chat
-        if (!err.message?.includes('Authentication required')) {
+        // Silently handle auth/connection errors - user can still chat
+        const isConnectionError = err.message?.includes('Backend unavailable') || 
+                                 err.message?.includes('Failed to connect') ||
+                                 err.message?.includes('Failed to fetch');
+        if (!err.message?.includes('Authentication required') && !isConnectionError) {
           console.error('Failed to load sessions:', err);
         }
       });
@@ -362,8 +385,11 @@ export default function ChatPage() {
       const savedActive = localStorage.getItem("hypeon_active_chat");
       if (savedActive && savedActive !== "new") {
         backendLoadSession(savedActive).catch((err) => {
-          // Silently handle auth errors - user can still chat
-          if (!err.message?.includes('Authentication required')) {
+          // Silently handle auth/connection errors - user can still chat
+          const isConnectionError = err.message?.includes('Backend unavailable') || 
+                                   err.message?.includes('Failed to connect') ||
+                                   err.message?.includes('Failed to fetch');
+          if (!err.message?.includes('Authentication required') && !isConnectionError) {
             console.error('Failed to load session:', err);
           }
         });
@@ -413,6 +439,9 @@ export default function ChatPage() {
     if (!text.trim() || backendLoading) return;
 
     const currentActiveChatId = activeChatId;
+    
+    // Clear input immediately for better UX
+    setInput("");
 
     try {
       // Use streaming API for real-time progress updates
@@ -457,8 +486,6 @@ export default function ChatPage() {
         alert(err.message || 'Failed to send message. Please try again.');
       }
     }
-
-    setInput("");
   }
 
   // Fallback local API function (for when backend is not available)
