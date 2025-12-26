@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { initParentAppIntegration, getParentAppOrigin } from '@/lib/parentAppIntegration';
 import { getToken, setToken, setUserInStorage } from '@/lib/auth';
+import { ThemeProvider } from "../context/ThemeContext";
 
 const PARENT_APP_URL = 'https://app.hypeon.ai';
 
@@ -123,6 +124,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  return <>{children}</>;
-}
+ return <ThemeProvider>{children}</ThemeProvider>;
 
+}

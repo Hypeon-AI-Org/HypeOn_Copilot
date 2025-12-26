@@ -1,0 +1,112 @@
+.toggle {
+  position: fixed;
+  top: 24px;
+  right: 32px;
+  z-index: 50;
+
+  width: 78px;
+  height: 40px;
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+
+  transition: all 300ms ease;
+}
+
+/* DARK TRACK */
+:global(html.dark) .toggle {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* TRACK ICONS */
+.trackIcons {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.sunActive {
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+}
+
+.sunInactive {
+  width: 16px;
+  height: 16px;
+  color: #cbd5f5;
+}
+
+.moonActive {
+  width: 16px;
+  height: 16px;
+  color: #e5e7eb;
+}
+
+.moonInactive {
+  width: 16px;
+  height: 16px;
+    color: #64748b;
+}
+
+/* GLASS KNOB */
+.knob {
+  position: absolute;
+  top: 4px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+
+  transition: all 320ms cubic-bezier(.22,1,.36,1);
+}
+
+/* LIGHT GLASS */
+.knobLight {
+  background: #ffffff; /* clean solid */
+
+  box-shadow:
+    0 6px 16px rgba(15,23,42,0.14),
+    inset 0 1px 0 rgba(255,255,255,0.9);
+
+  transform: translateX(4px);
+}
+
+/* DARK GLASS */
+.knobDark {
+  background: #0f172a; /* deep slate */
+
+  box-shadow:
+    0 8px 22px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  transform: translateX(40px);
+}
+
+
+/* KNOB ICONS */
+.knobIconLight {
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+}
+
+.knobIconDark {
+  width: 16px;
+  height: 16px;
+  color: #e5e7eb;
+}

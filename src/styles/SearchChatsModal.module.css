@@ -147,3 +147,104 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* =========================================================
+   🌙 DARK MODE — SEARCH / MODAL (PREMIUM GLASS)
+   Works with html.dark
+========================================================= */
+
+:global(html.dark) .overlay {
+  background:
+    radial-gradient(
+      1400px 700px at 15% 20%,
+      rgba(99,102,241,0.22),
+      transparent 60%
+    ),
+    radial-gradient(
+      1200px 600px at 85% 30%,
+      rgba(236,72,153,0.18),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 500px at 50% 90%,
+      rgba(139,92,246,0.20),
+      transparent 60%
+    ),
+    rgba(7,11,24,0.88);
+  backdrop-filter: blur(14px);
+}
+
+/* ================= MODAL ================= */
+
+:global(html.dark) .modal {
+  background: rgba(15,23,42,0.95);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 40px 120px rgba(0,0,0,0.85),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+  color: #f9fafb;
+}
+
+/* ================= SEARCH INPUT ================= */
+
+:global(html.dark) .searchInput {
+  background: rgba(30,41,59,0.65);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #f9fafb;
+}
+
+:global(html.dark) .searchInput::placeholder {
+  color: #94a3b8;
+}
+
+/* ================= CLOSE BUTTON ================= */
+
+:global(html.dark) .closeBtn {
+  background: rgba(30,41,59,0.65);
+  border-color: rgba(255,255,255,0.08);
+  color: #e5e7eb;
+}
+
+:global(html.dark) .closeBtn:hover {
+  background: rgba(51,65,85,0.75);
+}
+
+/* ================= NEW CHAT ROW ================= */
+
+:global(html.dark) .newChatRow {
+  background: rgba(30,41,59,0.55);
+  border-color: rgba(255,255,255,0.08);
+  color: #f9fafb;
+}
+
+:global(html.dark) .newChatRow:hover {
+  background: rgba(51,65,85,0.65);
+}
+
+/* ================= LIST & GROUP LABEL ================= */
+
+:global(html.dark) .groupLabel {
+  color: #94a3b8;
+}
+
+/* ================= CHAT ROW ================= */
+
+:global(html.dark) .chatRow {
+  color: #e5e7eb;
+}
+
+:global(html.dark) .chatRow:hover {
+  background: rgba(51,65,85,0.55);
+}
+
+/* ================= CHAT BULLET ================= */
+
+:global(html.dark) .chatBullet {
+  border-color: rgba(255,255,255,0.35);
+}
+
+/* ================= TITLE ================= */
+
+:global(html.dark) .chatTitle {
+  color: #e5e7eb;
+}

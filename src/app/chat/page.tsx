@@ -10,6 +10,7 @@ import { ChatMessage } from "@/components/chatbot/ChatMessage";
 import { ProgressIndicator } from "@/components/chatbot/ProgressIndicator";
 import { ChatResponse, TableData } from "@/lib/chatService";
 import styles from "../../styles/chat.module.css";
+import ThemeToggle from "../../components/ThemeToggle";
 
 const ChatSidebar = dynamic(
   () => import("@/components/chatbot/ChatSidebar"),
@@ -222,7 +223,8 @@ export default function ChatPage() {
   // Local state for UI compatibility
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [model, setModel] = useState<"basic" | "pro" | null>(null);
+  const [model, setModel] = useState<"basic" | "pro">("basic");
+
   
   // Convert backend messages to UI format
   const [messages, setMessages] = useState<Message[]>([]);
@@ -708,10 +710,8 @@ export default function ChatPage() {
     className={`${styles.ModelBox} ${
       model === "basic" ? styles.active : ""
     }`}
-    onClick={() =>
-      setModel(model === "basic" ? null : "basic")
-    }
-  >
+  onClick={() => setModel("basic")}
+>
      Basic
   </button>
 
@@ -761,6 +761,7 @@ export default function ChatPage() {
   );
 
   return (
+     <><ThemeToggle /> 
     <div className={styles.chatRoot}>
       <ChatSidebar
         collapsed={collapsed}
@@ -803,6 +804,7 @@ export default function ChatPage() {
                 </p>
 
                 {InputBox}
+                
                 <div className={styles.exampleSection}>
   <div className={styles.exampleTitle}>
     GET STARTED WITH AN EXAMPLE BELOW
@@ -1048,5 +1050,6 @@ export default function ChatPage() {
         />
       )}
     </div>
+      </>
   );
 }

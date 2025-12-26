@@ -41,6 +41,7 @@
 
 .main {
   flex: 1;
+
   display: flex;
   flex-direction: column;
   padding: 20px 40px;
@@ -907,6 +908,10 @@ background:   linear-gradient(
   }
 }
 
+.inputBottomWrapper .textareaIcon {
+  display: none;
+}
+
 /* ===================== SIMPLE TABLE STYLING ===================== */
 
 /* Table Container - Transparent */
@@ -1258,4 +1263,148 @@ background:   linear-gradient(
   .tableScroll {
     -webkit-overflow-scrolling: touch;
   }
+}
+/* =========================================================
+   🌙DARK MODE — CSS
+========================================================= */
+
+
+
+:global(html.dark) .chatRoot {
+  background:
+    radial-gradient(1400px 700px at 15% 20%, rgba(99,102,241,0.18), transparent 60%),
+    radial-gradient(1200px 600px at 85% 30%, rgba(236,72,153,0.16), transparent 55%),
+    radial-gradient(900px 500px at 50% 90%, rgba(139,92,246,0.18), transparent 60%),
+    linear-gradient(180deg, #070b18, #0b0f1a);
+  color: #e5e7eb;
+}
+
+/* ================= TEXT ================= */
+
+:global(html.dark) .heading {
+  color: #ffffff;
+  text-shadow: 0 0 28px rgba(99,102,241,0.35);
+}
+
+:global(html.dark) .subHeading,
+:global(html.dark) .examplePreview {
+  color: #9ca3af;
+}
+
+:global(html.dark) .plainText {
+  color: #e5e7eb;
+}
+
+/* ================= INPUT CARD ================= */
+
+:global(html.dark) .inputRow {
+  background: rgba(15,23,42,0.55);
+  backdrop-filter: blur(34px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow:
+    0 40px 120px rgba(0,0,0,0.75),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+:global(html.dark) .textarea {
+  color: #f9fafb;
+}
+
+:global(html.dark) .textarea::placeholder {
+  color: #94a3b8;
+}
+
+:global(html.dark) .textareaIcon {
+  color: #c7d2fe;
+}
+
+/* ================= MODEL PILLS ================= */
+
+:global(html.dark) .ModelBox {
+  background: rgba(30,41,59,0.55);
+  border-color: rgba(255,255,255,0.08);
+  color: #cbd5f5;
+}
+
+:global(html.dark) .ModelBox.active {
+  background: rgba(99,102,241,0.25);
+  border-color: #6366f1;
+  color: #e0e7ff;
+}
+
+/* ================= SEND BUTTON ================= */
+
+:global(html.dark) .SendBtn {
+  box-shadow:
+    0 14px 40px rgba(124,58,237,0.65),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+/* ================= EXAMPLE CARDS ================= */
+
+:global(html.dark) .exampleCard {
+  background: rgba(17,25,40,0.55);
+  backdrop-filter: blur(26px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+:global(html.dark) .exampleText {
+  color: #f9fafb;
+}
+
+:global(html.dark) .topNotch {
+  background: rgba(17,25,40,0.95);
+}
+
+/* ================= CHAT MESSAGES ================= */
+
+:global(html.dark) .aiBlock {
+  background: rgba(15,23,42,0.65);
+}
+
+:global(html.dark) .botMsg {
+  background: rgba(30,41,59,0.65);
+  color: #e5e7eb;
+}
+
+:global(html.dark) .userMsg {
+  background: linear-gradient(
+    135deg,
+    rgba(99,102,241,0.35),
+    rgba(139,92,246,0.35)
+  );
+  color: #ffffff;
+}
+
+/* ================= TABLES ================= */
+
+:global(html.dark) .table {
+  background: rgba(15,23,42,0.45);
+}
+
+:global(html.dark) .table th {
+  background: rgba(30,41,59,0.75);
+  color: #e5e7eb;
+}
+
+:global(html.dark) .table td {
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ================= BOTTOM INPUT BAR ================= */
+
+:global(html.dark) .inputBottomWrapper {
+  background: rgba(11,15,26,0.94);
+  backdrop-filter: blur(18px);
+}
+
+:global(html.dark) .inputBottomWrapper::before {
+  background: linear-gradient(
+    to top,
+    rgba(11,15,26,1),
+    rgba(11,15,26,0)
+  );
 }
