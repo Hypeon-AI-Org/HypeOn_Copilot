@@ -3,11 +3,14 @@
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import ReactMarkdown from "react-markdown";
 import SearchChatsModal from "@/components/chatbot/SearchChatsModal";
 import { useHypeonChat } from "@/hooks/useHypeonChat";
 import { getToken, listenForTokenUpdates, requestTokenFromParent, getTokenInfo } from "@/lib/auth";
 import { ChatMessage } from "@/components/chatbot/ChatMessage";
-import { ProgressIndicator } from "@/components/chatbot/ProgressIndicator";
+import { ProgressContainer } from "@/components/chatbot/ProgressContainer";
+import { ResearchPlanIndicator } from "@/components/chatbot/ResearchPlanIndicator";
+import { DataTable } from "@/components/chatbot/DataTable";
 import { ChatResponse, TableData } from "@/lib/chatService";
 import styles from "../../styles/chat.module.css";
 import ThemeToggle from "../../components/ThemeToggle";
@@ -66,6 +69,27 @@ function TypingSummary({
   }, [text, onDone]);
 
   return <p>{displayed}</p>;
+}
+
+// Wrapper component for ChatMessage with typing animation
+function TypingChatMessage({
+  response,
+  shouldAnimate,
+  onAnimationComplete,
+}: {
+  response: ChatResponse;
+  shouldAnimate: boolean;
+  onAnimationComplete: () => void;
+}) {
+  return (
+    <ChatMessage
+      response={response}
+      isUser={false}
+      animate={shouldAnimate}
+      animationSpeed={10}
+      onAnimationComplete={onAnimationComplete}
+    />
+  );
 }
 
 function StreamingTable({
@@ -154,8 +178,10 @@ export default function ChatPage() {
 
   // Redirect to app.hypeon.ai if no token found
   useEffect(() => {
-    // Skip redirect if we have an env token (for development/testing)
-    if (process.env.NEXT_PUBLIC_JWT_TOKEN) {
+    // Skip redirect if auth is disabled in development or we have an env token
+    const isAuthDisabled = process.env.NODE_ENV === 'development' && 
+                           process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+    if (isAuthDisabled || process.env.NEXT_PUBLIC_JWT_TOKEN) {
       return;
     }
 
@@ -208,6 +234,10 @@ export default function ChatPage() {
     loading: backendLoading,
     error: backendError,
     progress: backendProgress,
+    stages: backendStages,
+    stagesArray: backendStagesArray,
+    progressUpdateCounter: backendProgressUpdateCounter,
+    researchPlan,
     sendMessage: backendSendMessage,
     sendMessageStream: backendSendMessageStream,
     loadSessions: backendLoadSessions,
@@ -231,6 +261,10 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [typingDone, setTypingDone] = useState<Record<number, boolean>>({});
   const [tableDone, setTableDone] = useState<Record<number, boolean>>({});
+  
+  // Track initial message count when session is loaded (to distinguish loaded vs new messages)
+  const [initialMessageCount, setInitialMessageCount] = useState(0);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const hasChat = messages.length > 0;
@@ -244,14 +278,22 @@ export default function ChatPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   
   useEffect(() => {
-    if (backendSessions.length > 0 && !isUpdating) {
-      const convertedChats: ChatSession[] = backendSessions.map((s) => ({
-        id: s.session_id,
-        title: s.title || 'Untitled Chat',
-        messages: [],
-        updatedAt: new Date(s.last_active_at).getTime(),
-      }));
-      setChats(convertedChats);
+    if (!isUpdating) {
+      if (backendSessions.length > 0) {
+        const convertedChats: ChatSession[] = backendSessions.map((s) => ({
+          id: s.session_id,
+          title: s.title || 'Untitled Chat',
+          messages: [],
+          updatedAt: new Date(s.last_active_at).getTime(),
+        }));
+        setChats(convertedChats);
+      } else {
+        // No sessions exist - create a new chat automatically
+        setChats([]);
+        if (!activeChatId && messages.length === 0) {
+          createNewChat();
+        }
+      }
     }
   }, [backendSessions, isUpdating]);
 
@@ -265,10 +307,48 @@ export default function ChatPage() {
 
   // Store ChatResponse data for assistant messages (keyed by session_id + message content hash)
   const [chatResponses, setChatResponses] = useState<Map<string, ChatResponse>>(new Map());
+  
+  // Track previous backend messages to detect new ones
+  const prevBackendMessagesRef = useRef<typeof backendMessages>([]);
+  const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
   // Convert backend messages to UI format
   useEffect(() => {
-    const convertedMessages: Message[] = backendMessages.map((msg) => {
+    // If we're loading a session, set initial count immediately to prevent animation
+    if (isLoadingSession && backendMessages.length > 0) {
+      setInitialMessageCount(backendMessages.length);
+      setIsLoadingSession(false);
+      // Clear any new message IDs since these are loaded messages
+      setNewMessageIds(new Set());
+      prevBackendMessagesRef.current = backendMessages;
+      return; // Don't process new message detection for loaded sessions
+    }
+    
+    // Detect new messages by comparing with previous state
+    const prevIds = new Set(prevBackendMessagesRef.current.map(m => m.message_id));
+    const currentIds = new Set(backendMessages.map(m => m.message_id));
+    const newlyAddedIds = new Set(
+      Array.from(currentIds).filter(id => !prevIds.has(id))
+    );
+    
+    // Update new message IDs (only keep them for a short time to trigger animation)
+    // Only track new messages if we're not loading a session
+    if (newlyAddedIds.size > 0 && !isLoadingSession) {
+      setNewMessageIds(newlyAddedIds);
+      // Clear after animation would complete (estimate: 5 seconds max)
+      setTimeout(() => {
+        setNewMessageIds(prev => {
+          const updated = new Set(prev);
+          newlyAddedIds.forEach(id => updated.delete(id));
+          return updated;
+        });
+      }, 5000);
+    }
+    
+    // Update ref for next comparison
+    prevBackendMessagesRef.current = backendMessages;
+    
+    const convertedMessages: Message[] = backendMessages.map((msg, index) => {
       if (msg.role === 'user') {
         return { role: 'user', text: msg.content };
       } else {
@@ -288,7 +368,8 @@ export default function ChatPage() {
               columns: tableColumns,
               rows: tableRows,
             },
-            isNew: false,
+            // Only mark as new if it's not part of initial load
+            isNew: newMessageIds.has(msg.message_id) && (index >= initialMessageCount),
             // Build chatResponse from message data
             chatResponse: {
               session_id: msg.session_id,
@@ -297,6 +378,8 @@ export default function ChatPage() {
               insights: msg.insights,
               artifacts: msg.artifacts,
               explanation: msg.explanation,
+              metadata: (msg as any).metadata,
+              sectionTitles: (msg as any).metadata?.sectionTitles,
             },
           };
         }
@@ -319,7 +402,8 @@ export default function ChatPage() {
             role: 'assistant',
             summary: parsedData.summary,
             table: parsedData.table,
-            isNew: false,
+            // Only mark as new if it's not part of initial load
+            isNew: newMessageIds.has(msg.message_id) && (index >= initialMessageCount),
           };
         } 
         // Handle new API format (answer + tables from JSON)
@@ -339,12 +423,15 @@ export default function ChatPage() {
               columns: tableColumns,
               rows: tableRows,
             },
-            isNew: false,
+            // Only mark as new if it's not part of initial load
+            isNew: newMessageIds.has(msg.message_id) && (index >= initialMessageCount),
             chatResponse: parsedData,
           };
         }
         else {
           // Plain text response - create a simple summary and empty table
+          // Only mark as new if it's not part of initial load
+          const isNewMessage = newMessageIds.has(msg.message_id) && (index >= initialMessageCount);
           return {
             role: 'assistant',
             summary: msg.content,
@@ -353,13 +440,13 @@ export default function ChatPage() {
               columns: [],
               rows: [],
             },
-            isNew: false,
+            isNew: isNewMessage,
           };
         }
       }
     });
     setMessages(convertedMessages);
-  }, [backendMessages]);
+  }, [backendMessages, newMessageIds, isLoadingSession]);
 
   // Sync loading state
   useEffect(() => {
@@ -374,13 +461,20 @@ export default function ChatPage() {
   useEffect(() => {
     if (token) {
       // Only try to load from backend if we have a token
-      backendLoadSessions().catch((err) => {
+      backendLoadSessions().then(() => {
+        // After loading sessions, check if we need to create a new chat
+        // This will be handled by the backendSessions effect
+      }).catch((err) => {
         // Silently handle auth/connection errors - user can still chat
         const isConnectionError = err.message?.includes('Backend unavailable') || 
                                  err.message?.includes('Failed to connect') ||
                                  err.message?.includes('Failed to fetch');
         if (!err.message?.includes('Authentication required') && !isConnectionError) {
           console.error('Failed to load sessions:', err);
+        }
+        // If loading fails and no active chat, create a new one
+        if (!activeChatId && messages.length === 0) {
+          createNewChat();
         }
       });
       
@@ -391,10 +485,28 @@ export default function ChatPage() {
           const isConnectionError = err.message?.includes('Backend unavailable') || 
                                    err.message?.includes('Failed to connect') ||
                                    err.message?.includes('Failed to fetch');
+          const isAuthDisabled = process.env.NODE_ENV === 'development' && 
+                                 process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+          
+          // If session not found, create a new chat
+          if (err.message?.includes('Session not found') || 
+              (err.message?.includes('permission') && isAuthDisabled)) {
+            console.warn('Saved session not found - creating new chat');
+            createNewChat();
+            return;
+          }
+          
           if (!err.message?.includes('Authentication required') && !isConnectionError) {
             console.error('Failed to load session:', err);
           }
+          // If loading fails and no active chat, create a new one
+          if (!activeChatId && messages.length === 0) {
+            createNewChat();
+          }
         });
+      } else if (!savedActive || savedActive === "new") {
+        // No saved session or explicitly "new" - create a new chat
+        createNewChat();
       }
     } else {
       // Fallback to local storage if no token
@@ -403,9 +515,16 @@ export default function ChatPage() {
         try {
           const parsed: ChatSession[] = JSON.parse(savedChats);
           setChats(parsed);
+          if (parsed.length === 0) {
+            createNewChat();
+          }
         } catch (e) {
           console.error('Failed to parse saved chats:', e);
+          createNewChat();
         }
+      } else {
+        // No saved chats - create a new chat
+        createNewChat();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -561,12 +680,16 @@ export default function ChatPage() {
     backendNewChat();
     setActiveChatId(null);
     setMessages([]);
+    setInitialMessageCount(0); // Reset initial count for new chat
     setTypingDone({});
     setTableDone({});
+    setIsLoadingSession(false);
     localStorage.setItem("hypeon_active_chat", "new");
   }
 
   async function selectChat(id: string) {
+    setIsLoadingSession(true);
+    
     if (token) {
       // Load from backend
       try {
@@ -574,7 +697,20 @@ export default function ChatPage() {
         setActiveChatId(id);
         setTypingDone({});
         setTableDone({});
+        // initialMessageCount will be set by useEffect when messages load
+        return;
       } catch (err: any) {
+        // Handle session not found - create new chat
+        const isAuthDisabled = process.env.NODE_ENV === 'development' && 
+                               process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+        
+        if (err.message?.includes('Session not found') || 
+            (err.message?.includes('permission') && isAuthDisabled)) {
+          console.warn('Session not found - creating new chat');
+          createNewChat();
+          return;
+        }
+        
         // Don't show error if it's just missing auth - fall back to local
         if (err.message?.includes('Authentication required')) {
           console.warn('Session history unavailable without authentication. Using local storage.');
@@ -590,14 +726,20 @@ export default function ChatPage() {
     const chat = chats.find((c) => c.id === id);
     if (chat) {
       setActiveChatId(id);
-      setMessages(
-        chat.messages.map((m) =>
-          m.role === "assistant" ? { ...m, isNew: false } : m
-        )
+      const loadedMessages = chat.messages.map((m) =>
+        m.role === "assistant" ? { ...m, isNew: false } : m
       );
+      setMessages(loadedMessages);
+      setInitialMessageCount(loadedMessages.length); // Track initial count
       setTypingDone({});
       setTableDone({});
+      setIsLoadingSession(false);
       localStorage.setItem("hypeon_active_chat", id);
+    } else {
+      // Session doesn't exist in local storage either - create new chat
+      console.warn('Session not found in local storage - creating new chat');
+      setIsLoadingSession(false);
+      createNewChat();
     }
   }
 
@@ -659,26 +801,140 @@ export default function ChatPage() {
     }
 
     // Delete from backend if we have a token
-    if (token) {
+    const isAuthDisabled = process.env.NODE_ENV === 'development' && 
+                           process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+    
+    if (token || isAuthDisabled) {
       setIsUpdating(true);
       try {
         const { ChatService } = await import('@/lib/chatService');
         const chatService = new ChatService(apiUrl, token);
         await chatService.deleteSession(id);
         // Refresh sessions list
-        await backendLoadSessions();
-      } catch (err: any) {
-        // Revert on error
-        console.error('Failed to delete session:', err);
-        setChats(originalChats);
-        if (wasActive) {
-          setActiveChatId(id);
-          localStorage.setItem("hypeon_active_chat", id);
+        if (token) {
+          await backendLoadSessions();
+        } else {
+          // If no token, manually update the chats list
+          setChats((prev) => prev.filter((c) => c.id !== id));
         }
-        // Show error to user
-        alert(err.message || 'Failed to delete chat. Please try again.');
+        
+        // If all sessions are deleted or this was the active session, create a new chat
+        const remainingChats = chats.filter((c) => c.id !== id);
+        if (remainingChats.length === 0 || wasActive) {
+          createNewChat();
+        }
+      } catch (err: any) {
+        // Handle "Session not found" gracefully when auth is disabled - session might not exist in backend
+        if (isAuthDisabled && err.message?.includes('Session not found')) {
+          // Session doesn't exist in backend, but we've already removed it from UI - that's fine
+          console.log('Session not found in backend (auth disabled) - removed from local UI');
+          
+          // If all sessions are deleted or this was the active session, create a new chat
+          const remainingChats = chats.filter((c) => c.id !== id);
+          if (remainingChats.length === 0 || wasActive) {
+            createNewChat();
+          }
+        } else {
+          // Revert on other errors
+          console.error('Failed to delete session:', err);
+          setChats(originalChats);
+          if (wasActive) {
+            setActiveChatId(id);
+            localStorage.setItem("hypeon_active_chat", id);
+          }
+          // Show error to user
+          alert(err.message || 'Failed to delete chat. Please try again.');
+        }
       } finally {
         setIsUpdating(false);
+      }
+    } else {
+      // No token and auth not disabled - just update local state
+      const remainingChats = chats.filter((c) => c.id !== id);
+      if (remainingChats.length === 0 || wasActive) {
+        createNewChat();
+      }
+    }
+  }
+
+  async function deleteChats(ids: string[]) {
+    if (ids.length === 0) return;
+
+    // Store original state for revert
+    const originalChats = [...chats];
+    const wasActive = ids.includes(activeChatId || '');
+
+    // Update local state optimistically
+    setChats((prev) => prev.filter((c) => !ids.includes(c.id)));
+
+    if (wasActive) {
+      setActiveChatId(null);
+      setMessages([]);
+      setTypingDone({});
+      setTableDone({});
+      localStorage.setItem("hypeon_active_chat", "new");
+    }
+
+    // Delete from backend if we have a token
+    const isAuthDisabled = process.env.NODE_ENV === 'development' && 
+                           process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+    
+    if (token || isAuthDisabled) {
+      setIsUpdating(true);
+      try {
+        const { ChatService } = await import('@/lib/chatService');
+        const chatService = new ChatService(apiUrl, token);
+        
+        // Delete all sessions in parallel
+        await Promise.all(ids.map(id => chatService.deleteSession(id).catch(err => {
+          // Log individual errors but continue with others
+          console.warn(`Failed to delete session ${id}:`, err);
+          return null;
+        })));
+        
+        // Refresh sessions list
+        if (token) {
+          await backendLoadSessions();
+        } else {
+          // If no token, manually update the chats list
+          setChats((prev) => prev.filter((c) => !ids.includes(c.id)));
+        }
+        
+        // If all sessions are deleted or active session was deleted, create a new chat
+        const remainingChats = chats.filter((c) => !ids.includes(c.id));
+        if (remainingChats.length === 0 || wasActive) {
+          createNewChat();
+        }
+      } catch (err: any) {
+        // Handle errors gracefully
+        if (isAuthDisabled && err.message?.includes('Session not found')) {
+          console.log('Some sessions not found in backend (auth disabled) - removed from local UI');
+          const remainingChats = chats.filter((c) => !ids.includes(c.id));
+          if (remainingChats.length === 0 || wasActive) {
+            createNewChat();
+          }
+        } else {
+          // Revert on critical errors
+          console.error('Failed to delete sessions:', err);
+          setChats(originalChats);
+          if (wasActive) {
+            const firstDeleted = chats.find(c => ids.includes(c.id));
+            if (firstDeleted) {
+              setActiveChatId(firstDeleted.id);
+              localStorage.setItem("hypeon_active_chat", firstDeleted.id);
+            }
+          }
+          // Show error to user
+          alert(err.message || 'Failed to delete chats. Please try again.');
+        }
+      } finally {
+        setIsUpdating(false);
+      }
+    } else {
+      // No token and auth not disabled - just update local state
+      const remainingChats = chats.filter((c) => !ids.includes(c.id));
+      if (remainingChats.length === 0 || wasActive) {
+        createNewChat();
       }
     }
   }
@@ -934,11 +1190,43 @@ export default function ChatPage() {
                     }
                   }
                   
-                  // Use new ChatMessage component if we have new format data
-                  if (chatResponse && (chatResponse.tables || chatResponse.explanation)) {
+                  // Check if this is a streaming message (waiting for complete response)
+                  const isStreaming = (msg as any).isStreaming === true;
+                  
+                  // Show loading indicator while streaming (waiting for complete response)
+                  if (isStreaming) {
                     return (
-                      <div key={i}>
-                        <ChatMessage response={chatResponse} isUser={false} />
+                      <div key={i} className={styles.assistantMessage}>
+                        <div className={styles.answerContent}>
+                          <div className={styles.waitingMessage}>Generating response...</div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  // Use new ChatMessage component if we have new format data
+                  if (chatResponse && (chatResponse.tables || chatResponse.explanation || chatResponse.answer)) {
+                    // Show with animation for new messages
+                    const shouldAnimate = msg.isNew === true && i >= initialMessageCount;
+                    return (
+                      <ChatMessage
+                        key={i}
+                        response={chatResponse}
+                        isUser={false}
+                        animate={shouldAnimate} // Animate new messages
+                        animationSpeed={10}
+                      />
+                    );
+                  }
+                  
+                  // Handle streaming messages without chatResponse (plain text streaming)
+                  if (isStreaming) {
+                    return (
+                      <div key={i} className={styles.assistantMessage}>
+                        <div className={styles.answerContent}>
+                          <ReactMarkdown>{msg.summary || ''}</ReactMarkdown>
+                          <span className={styles.streamingCursor}>▊</span>
+                        </div>
                       </div>
                     );
                   }
@@ -1001,9 +1289,50 @@ export default function ChatPage() {
 
       return (
         <tr key={ri}>
-          {safeRow.map((cell, ci) => (
-            <td key={ci}>{String(cell ?? "")}</td>
-          ))}
+          {safeRow.map((cell, ci) => {
+            const cellValue = String(cell ?? "").trim();
+            
+            // Empty cell
+            if (!cellValue) {
+              return (
+                <td key={ci}>
+                  <span style={{ color: '#999' }}>—</span>
+                </td>
+              );
+            }
+            
+            // Check if value is an image URL
+            const isImage = /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?.*)?$/i.test(cellValue) || 
+                          cellValue.startsWith('data:image/');
+            
+            // Check if it's a regular URL (not an image)
+            const isUrl = (cellValue.startsWith('http://') || cellValue.startsWith('https://')) && !isImage;
+            
+            return (
+              <td key={ci}>
+                {isImage ? (
+                  <img 
+                    src={cellValue} 
+                    alt="Table image" 
+                    style={{ maxWidth: '100px', maxHeight: '100px', objectFit: 'contain', borderRadius: '4px' }}
+                    onError={(e) => {
+                      // Fallback to text if image fails to load
+                      const target = e.currentTarget;
+                      target.style.display = 'none';
+                      const fallback = document.createElement('span');
+                      fallback.textContent = cellValue;
+                      fallback.style.color = '#666';
+                      target.parentNode?.appendChild(fallback);
+                    }}
+                  />
+                ) : isUrl ? (
+                  <a href={cellValue} target="_blank" rel="noopener noreferrer" style={{ color: '#0066cc', textDecoration: 'underline' }}>{cellValue}</a>
+                ) : (
+                  cellValue
+                )}
+              </td>
+            );
+          })}
         </tr>
       );
     })
@@ -1019,11 +1348,15 @@ export default function ChatPage() {
 
                 {backendLoading && (
                   <>
+                    {researchPlan && (
+                      <ResearchPlanIndicator plan={researchPlan} />
+                    )}
                     {backendProgress ? (
-                      <ProgressIndicator
-                        progress={backendProgress.progress}
-                        status={backendProgress.message}
-                        stage={backendProgress.stage}
+                      <ProgressContainer
+                        key={`progress-${backendProgress.stage}-${backendProgressUpdateCounter}-${backendProgress.progress}-${(backendProgress.message || '').substring(0, 50)}`}
+                        progress={backendProgress}
+                        stagesArray={backendStagesArray}
+                        loading={backendLoading}
                       />
                     ) : (
                       <div className={styles.loading}>Analyzing…</div>
@@ -1047,6 +1380,7 @@ export default function ChatPage() {
           chats={chats.map((c) => ({ id: c.id, title: c.title }))}
           onSelectChat={selectChat}
           onNewChat={createNewChat}
+          onDeleteChats={deleteChats}
         />
       )}
     </div>

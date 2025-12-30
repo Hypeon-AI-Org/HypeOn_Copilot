@@ -3,6 +3,9 @@
  * Based on FRONTEND_INTEGRATION.md
  */
 
+import { chatRateLimiter, sessionRateLimiter, generalRateLimiter } from './rateLimiter';
+import { log } from './logger';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export interface ChatRequest {
@@ -16,7 +19,7 @@ export interface ChatRequest {
 // Column Metadata for enhanced table rendering
 export interface ColumnMetadata {
   name: string;
-  type: "string" | "number" | "currency" | "percentage" | "date" | "datetime" | "boolean" | "url" | "email";
+  type: "string" | "number" | "currency" | "percentage" | "date" | "datetime" | "boolean" | "url" | "email" | "image";
   unit?: string;               // e.g., "USD", "kg", "%"
   description?: string;
   format?: string;             // e.g., "0.2f" for decimals
@@ -45,6 +48,22 @@ export interface Artifact {
   type: string;                // e.g., "product", "score", "signal"
   data: Record<string, any>;
   metadata?: Record<string, any>;
+}
+
+// Research Plan interfaces
+export interface ResearchPlan {
+  searchTerms: string[];
+  objectives: string[];
+  dataPoints: string[];
+  sources: string[];
+  timeSensitivity?: string;
+  geographicScope?: string;
+  note?: string;
+}
+
+export interface SearchTermStatus {
+  term: string;
+  status: 'pending' | 'searching' | 'completed' | 'skipped';
 }
 
 // Optional: Debug Response (only if X-Debug: true header sent)
@@ -79,6 +98,15 @@ export interface ChatResponse {
   artifacts?: Artifact[];      // NEW (optional)
   timestamp?: string;          // NEW (optional)
   debug?: DebugResponse;       // NEW (optional, only if X-Debug header)
+  // Optional section titles/labels (dynamic from backend)
+  sectionTitles?: {
+    insights?: string;
+    artifacts?: string;
+    explanation?: string;
+  };
+  metadata?: {
+    [key: string]: any;
+  };
   // Legacy fields (deprecated, kept for backward compatibility)
   structured_output?: any[];   // DEPRECATED
   usage?: {                    // DEPRECATED (removed from user-facing response)
@@ -118,6 +146,12 @@ export interface Message {
   insights?: Insight[];
   artifacts?: Artifact[];
   explanation?: string | null;
+  isStreaming?: boolean; // True if message is currently streaming tokens in real-time
+  metadata?: {
+    cached?: boolean;
+    search_entry_point?: string;
+    [key: string]: any;
+  };
 }
 
 export interface UserInfo {
@@ -153,6 +187,16 @@ export class ChatService {
   }
 
   /**
+   * Check if authentication is disabled (development mode)
+   */
+  private isAuthDisabled(): boolean {
+    // Only allow auth bypass in development with explicit flag
+    // Production always requires authentication
+    return process.env.NODE_ENV === 'development' && 
+           process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+  }
+
+  /**
    * Get authentication headers
    */
   private getHeaders(requestId?: string, includeDebug?: boolean): HeadersInit {
@@ -161,7 +205,12 @@ export class ChatService {
       'X-API-Version': 'v1',  // Optional, but explicit
     };
 
-    if (this.token) {
+    // Skip auth in development if disabled
+    if (this.isAuthDisabled()) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔓 Development mode: Authentication disabled');
+      }
+    } else if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
       
       // Log token info in development mode
@@ -178,11 +227,6 @@ export class ChatService {
         } catch (e) {
           console.warn('⚠️ Could not decode token for logging:', e);
         }
-      }
-    } else {
-      // Log warning in development if no token
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ No token available - request will be unauthenticated');
       }
     }
 
@@ -288,7 +332,14 @@ export class ChatService {
    * Send a chat message
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    // Rate limiting check
+    if (!chatRateLimiter.isAllowed('chat')) {
+      const waitTime = chatRateLimiter.getTimeUntilNext('chat');
+      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before sending another message.`);
+    }
+
     const url = `${this.apiBaseUrl}/api/v1/chat`;
+    const startTime = Date.now();
     
     // Log URL in development for debugging
     if (process.env.NODE_ENV === 'development') {
@@ -314,7 +365,10 @@ export class ChatService {
         }),
       });
 
-      if (response.status === 401) {
+      const durationMs = Date.now() - startTime;
+      log.apiRequest('POST', '/api/v1/chat', response.status, durationMs);
+
+      if (response.status === 401 && !this.isAuthDisabled()) {
         throw new Error('Authentication required');
       }
 
@@ -396,8 +450,15 @@ export class ChatService {
   async chatStream(
     request: ChatRequest,
     onChunk: (chunk: string, done: boolean) => void,
-    onComplete?: (sessionId: string, tables?: TableData[], explanation?: string | null, insights?: Insight[], artifacts?: Artifact[]) => void,
-    onProgress?: (stage: string, progress: number, message: string) => void
+    onComplete?: (sessionId: string, tables?: TableData[], explanation?: string | null, insights?: Insight[], artifacts?: Artifact[], metadata?: any) => void,
+    onProgress?: (stage: string, progress: number, message: string) => void,
+    onTable?: (table: TableData) => void,
+    onInsight?: (insight: Insight) => void,
+    onArtifact?: (artifact: Artifact) => void,
+    onStageStart?: (stage: string, stageIndex: number, totalStages: number) => void,
+    onStageComplete?: (stage: string, success: boolean, latencyMs?: number | null, error?: string) => void,
+    onResearchPlan?: (plan: ResearchPlan) => void,
+    onError?: (error: string, code?: string) => void
   ): Promise<void> {
     try {
       const requestId = request.request_id || `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -436,58 +497,156 @@ export class ChatService {
       const lines = buffer.split('\n\n');
       buffer = lines.pop() || '';
 
+      // TEMPORARY: Log all raw SSE lines for debugging
+      if (process.env.NODE_ENV === 'development' && lines.length > 0) {
+        lines.forEach(line => {
+          if (line.startsWith('data: ')) {
+            console.log('📥 Raw SSE line:', line.substring(0, 200));
+          }
+        });
+      }
+
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6));
             
+            // Log ALL events to see what's coming from backend
+            if (process.env.NODE_ENV === 'development') {
+              console.log('📨 SSE Event received:', {
+                type: data.type,
+                stage: data.stage,
+                hasMessage: !!data.message,
+                message: data.message?.substring(0, 100), // First 100 chars
+                progress: data.progress
+              });
+            }
+            
             // Handle new typed events
             switch (data.type) {
+              case 'stage_start':       // Stage started
+                if (onStageStart) {
+                  onStageStart(
+                    data.stage || 'unknown',
+                    data.stage_index ?? 0,
+                    data.total_stages ?? 1
+                  );
+                }
+                // Only update progress if no detailed message is provided
+                // Don't override detailed progress messages with generic "Starting..." message
+                // The backend will send detailed progress events immediately after stage_start
+                if (onProgress && data.message) {
+                  // Use backend message if provided, otherwise use generic
+                  onProgress(
+                    data.stage || 'unknown',
+                    0,
+                    data.message || `Starting ${data.stage || 'processing'}...`
+                  );
+                }
+                console.debug('Stage started:', data.stage, `(${data.stage_index + 1}/${data.total_stages})`);
+                break;
+              
               case 'progress':           // NEW - Real-time progress updates
                 if (onProgress) {
+                  // IMPORTANT: Always use data.message if provided, even if it's a detailed message
+                  // The backend sends detailed messages like "Searching: 'top 10 smartphone brands'..."
+                  const message = data.message?.trim() || 'Processing...';
+                  
+                  // Use console.log instead of console.debug for visibility
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('🔵 Progress event received:', {
+                      stage: data.stage,
+                      progress: data.progress,
+                      message: message,
+                      hasDetailedMessage: !!data.message && data.message !== 'Processing...',
+                      rawData: data // Log full event data
+                    });
+                  }
+                  
                   onProgress(
                     data.stage || 'unknown',
                     data.progress || 0,
-                    data.message || 'Processing...'
+                    message
                   );
                 }
                 break;
               
-              case 'token':              // Text content chunks
+              case 'token':              // Text content chunks (NEW - true streaming)
               case 'chunk':              // Legacy support
-                onChunk(data.content, false);
-                // Update progress during streaming (estimate 0.7-0.95)
-                if (onProgress) {
-                  onProgress('streaming', 0.7, 'Streaming response...');
+                // Token events stream live as LLM generates them
+                // data.content: the token text to append (plain text tokens from LLM)
+                // data.done: true if this is the final token (content may be empty), false if more tokens are coming
+                // Backend sends plain text tokens - no need to filter
+                const tokenContent = data.content || '';
+                const isDone = data.done || false;
+                
+                // Always call onChunk to signal completion, even if content is empty (final token)
+                if (tokenContent || isDone) {
+                  onChunk(tokenContent, isDone);
                 }
+                
+                // Don't override progress during token streaming - let compose stage progress handle it
+                // Progress updates should come from 'progress' events, not token events
                 break;
               
               case 'stage_complete':     // Stage finished
-                if (onProgress) {
-                  const stageMessages: Record<string, string> = {
-                    routing: 'Request processed',
-                    enhance: 'Question optimized',
-                    research: 'Research complete',
-                    analysis: 'Analysis complete',
-                    compose: 'Response ready'
-                  };
-                  onProgress(
+                if (onStageComplete) {
+                  onStageComplete(
                     data.stage || 'unknown',
-                    data.progress || 0.5,
-                    stageMessages[data.stage] || 'Stage complete'
+                    data.success !== false,
+                    data.latency_ms,
+                    data.error
                   );
                 }
-                console.debug('Stage completed:', data.stage, data.success);
+                // IMPORTANT: Don't call onProgress on stage_complete
+                // This prevents generic completion messages from overriding detailed progress messages
+                // The last detailed progress message should remain visible until the next stage starts
+                // Only update the stage status in the stages map, don't update the main progress state
+                // This ensures users see the detailed messages like "Found 48 sources..." instead of generic "Research complete"
+                console.debug('Stage completed:', data.stage, data.success, data.latency_ms, data.error);
                 break;
               
-              case 'table':              // Structured table data
-                // Optional: could render table incrementally
+              case 'table':              // Structured table data - progressive display
+                if (onTable && data.table) {
+                  const normalizedTable = this.normalizeTableData([data.table])[0];
+                  onTable(normalizedTable);
+                }
                 console.debug('Table received:', data.table);
                 break;
               
-              case 'insight':            // Insight data
-                // Optional: could render insights incrementally
+              case 'insight':            // Insight data - progressive display
+                if (onInsight && data.insight) {
+                  onInsight(data.insight);
+                }
                 console.debug('Insight received:', data.insight);
+                break;
+              
+              case 'artifact':           // Artifact data - progressive display
+                if (onArtifact && data.artifact) {
+                  onArtifact(data.artifact);
+                }
+                console.debug('Artifact received:', data.artifact);
+                break;
+              
+              case 'research_plan':      // Research plan with suggested search terms
+                if (onResearchPlan) {
+                  onResearchPlan({
+                    searchTerms: data.search_terms || [],
+                    objectives: data.objectives || [],
+                    dataPoints: data.data_points || [],
+                    sources: data.sources || [],
+                    timeSensitivity: data.time_sensitivity,
+                    geographicScope: data.geographic_scope,
+                    note: data.note
+                  });
+                }
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('📋 Research plan received:', {
+                    searchTermsCount: data.search_terms?.length || 0,
+                    objectives: data.objectives?.length || 0,
+                    dataPoints: data.data_points?.length || 0
+                  });
+                }
                 break;
               
               case 'done':               // Final completion
@@ -498,21 +657,35 @@ export class ChatService {
                   const normalizedTables = data.tables 
                     ? this.normalizeTableData(data.tables)
                     : undefined;
+                  // Extract sectionTitles from metadata or top-level data
+                  const metadata = data.metadata || {};
+                  if (data.sectionTitles) {
+                    metadata.sectionTitles = data.sectionTitles;
+                  }
                   onComplete(
                     data.session_id,
                     normalizedTables,
                     data.explanation || null,
                     data.insights || [],
-                    data.artifacts || []
+                    data.artifacts || [],
+                    metadata
                   );
                 }
                 break;
               
               case 'error':              // Error occurred
-                if (onProgress) {
-                  onProgress('error', 0, `Error: ${data.error || 'Unknown error'}`);
+                const errorMessage = data.error || 'Unknown error';
+                const errorCode = data.code;
+                
+                if (onError) {
+                  onError(errorMessage, errorCode);
+                } else {
+                  if (onProgress) {
+                    onProgress('error', 0, `Error: ${errorMessage}`);
+                  }
+                  throw new Error(errorMessage);
                 }
-                throw new Error(data.error || 'Streaming error occurred');
+                break;
               
               default:
                 // Unknown event type, ignore
@@ -534,12 +707,18 @@ export class ChatService {
           const normalizedTables = data.tables 
             ? this.normalizeTableData(data.tables)
             : undefined;
+          // Extract sectionTitles from metadata or top-level data
+          const metadata = data.metadata || {};
+          if (data.sectionTitles) {
+            metadata.sectionTitles = data.sectionTitles;
+          }
           onComplete(
             data.session_id,
             normalizedTables,
             data.explanation || null,
             data.insights || [],
-            data.artifacts || []
+            data.artifacts || [],
+            metadata
           );
         }
       } catch (e) {
@@ -555,16 +734,26 @@ export class ChatService {
    * Get all user sessions
    */
   async getSessions(): Promise<Session[]> {
-    if (!this.token) {
+    // Rate limiting check
+    if (!sessionRateLimiter.isAllowed('sessions')) {
+      const waitTime = sessionRateLimiter.getTimeUntilNext('sessions');
+      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
+    }
+
+    if (!this.isAuthDisabled() && !this.token) {
       throw new Error('Authentication required');
     }
 
+    const startTime = Date.now();
     try {
       const response = await fetch(`${this.apiBaseUrl}/api/v1/sessions`, {
         headers: this.getHeaders(),
       });
 
-      if (response.status === 401) {
+      const durationMs = Date.now() - startTime;
+      log.apiRequest('GET', '/api/v1/sessions', response.status, durationMs);
+
+      if (response.status === 401 && !this.isAuthDisabled()) {
         throw new Error('Authentication required');
       }
 
@@ -586,7 +775,7 @@ export class ChatService {
    * Get session details
    */
   async getSession(sessionId: string): Promise<Session> {
-    if (!this.token) {
+    if (!this.isAuthDisabled() && !this.token) {
       throw new Error('Authentication required');
     }
 
@@ -595,12 +784,17 @@ export class ChatService {
         headers: this.getHeaders(),
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 && !this.isAuthDisabled()) {
         throw new Error('Authentication required');
       }
 
       if (response.status === 403) {
-        throw new Error('You do not have permission to access this session');
+        if (this.isAuthDisabled()) {
+          // In development with auth disabled, treat 403 as session not found
+          throw new Error('Session not found');
+        } else {
+          throw new Error('You do not have permission to access this session');
+        }
       }
 
       if (!response.ok) {
@@ -612,6 +806,7 @@ export class ChatService {
     } catch (error: any) {
       if (error.message === 'Authentication required' || 
           error.message === 'You do not have permission to access this session' ||
+          error.message === 'Session not found' ||
           error.message.includes('Request failed')) {
         throw error;
       }
@@ -623,7 +818,7 @@ export class ChatService {
    * Get session messages
    */
   async getSessionMessages(sessionId: string, limit?: number): Promise<Message[]> {
-    if (!this.token) {
+    if (!this.isAuthDisabled() && !this.token) {
       throw new Error('Authentication required');
     }
 
@@ -637,12 +832,17 @@ export class ChatService {
         headers: this.getHeaders(),
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 && !this.isAuthDisabled()) {
         throw new Error('Authentication required');
       }
 
       if (response.status === 403) {
-        throw new Error('You do not have permission to access this session');
+        if (this.isAuthDisabled()) {
+          // In development with auth disabled, treat 403 as session not found
+          throw new Error('Session not found');
+        } else {
+          throw new Error('You do not have permission to access this session');
+        }
       }
 
       if (!response.ok) {
@@ -665,6 +865,7 @@ export class ChatService {
     } catch (error: any) {
       if (error.message === 'Authentication required' || 
           error.message === 'You do not have permission to access this session' ||
+          error.message === 'Session not found' ||
           error.message.includes('Request failed')) {
         throw error;
       }
@@ -676,7 +877,7 @@ export class ChatService {
    * Update session title
    */
   async updateSessionTitle(sessionId: string, title: string): Promise<Session> {
-    if (!this.token) {
+    if (!this.isAuthDisabled() && !this.token) {
       throw new Error('Authentication required');
     }
 
@@ -687,12 +888,17 @@ export class ChatService {
         body: JSON.stringify({ title }),
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 && !this.isAuthDisabled()) {
         throw new Error('Authentication required');
       }
 
       if (response.status === 403) {
-        throw new Error('You do not have permission to access this session');
+        if (this.isAuthDisabled()) {
+          // In development with auth disabled, treat 403 as session not found
+          throw new Error('Session not found');
+        } else {
+          throw new Error('You do not have permission to access this session');
+        }
       }
 
       if (response.status === 400) {
@@ -709,6 +915,7 @@ export class ChatService {
     } catch (error: any) {
       if (error.message === 'Authentication required' || 
           error.message === 'You do not have permission to access this session' ||
+          error.message === 'Session not found' ||
           error.message.includes('Title must be') ||
           error.message.includes('Request failed')) {
         throw error;
@@ -720,8 +927,8 @@ export class ChatService {
   /**
    * Delete a session
    */
-  async deleteSession(sessionId: string): Promise<{ message: string }> {
-    if (!this.token) {
+  async deleteSession(sessionId: string): Promise<{ message: string; deleted_count?: number }> {
+    if (!this.isAuthDisabled() && !this.token) {
       throw new Error('Authentication required');
     }
 
@@ -731,15 +938,24 @@ export class ChatService {
         headers: this.getHeaders(),
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 && !this.isAuthDisabled()) {
         throw new Error('Authentication required');
       }
 
       if (response.status === 403) {
-        throw new Error('You do not have permission to access this session');
+        if (this.isAuthDisabled()) {
+          // In development with auth disabled, treat 403 as session not found
+          throw new Error('Session not found');
+        } else {
+          throw new Error('You do not have permission to access this session');
+        }
       }
 
       if (response.status === 404) {
+        // If auth is disabled, treat 404 as success (session already deleted or doesn't exist)
+        if (this.isAuthDisabled()) {
+          return { message: 'Session deleted', deleted_count: 1 };
+        }
         throw new Error('Session not found');
       }
 
@@ -764,7 +980,7 @@ export class ChatService {
    * Delete all sessions for the user
    */
   async deleteAllSessions(): Promise<{ message: string; deleted_count: number }> {
-    if (!this.token) {
+    if (!this.isAuthDisabled() && !this.token) {
       throw new Error('Authentication required');
     }
 
@@ -774,7 +990,7 @@ export class ChatService {
         headers: this.getHeaders(),
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 && !this.isAuthDisabled()) {
         throw new Error('Authentication required');
       }
 
@@ -796,7 +1012,7 @@ export class ChatService {
    * Get user info
    */
   async getUserInfo(): Promise<UserInfo> {
-    if (!this.token) {
+    if (!this.isAuthDisabled() && !this.token) {
       throw new Error('Authentication required');
     }
 
@@ -805,7 +1021,7 @@ export class ChatService {
         headers: this.getHeaders(),
       });
 
-      if (response.status === 401) {
+      if (response.status === 401 && !this.isAuthDisabled()) {
         throw new Error('Authentication required');
       }
 

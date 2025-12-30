@@ -50,8 +50,18 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     // Check if we're in an iframe
     const isInIframe = typeof window !== 'undefined' && window !== window.parent;
 
-    // Skip redirect if we have an env token (for development/testing)
+    // In production, auth is always required
+    // Only allow bypass in development with explicit flag
+    const isAuthDisabled = process.env.NODE_ENV === 'development' && 
+                           process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
     const hasEnvToken = !!process.env.NEXT_PUBLIC_JWT_TOKEN;
+
+    // Skip all auth checks ONLY in development with explicit flag
+    // Production always requires authentication
+    if (isAuthDisabled && process.env.NODE_ENV === 'development') {
+      setIsChecking(false);
+      return;
+    }
 
     // Check for token and redirect if not found
     const checkTokenAndRedirect = () => {

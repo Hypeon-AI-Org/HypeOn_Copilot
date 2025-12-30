@@ -79,12 +79,20 @@
   background: #f3f4f6;
 }
 
+/* === Action Bar === */
+.actionBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 /* === "New chat" Row === */
 .newChatRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  flex: 1;
   padding: 9px 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
@@ -92,7 +100,6 @@
   color: #111827;
   cursor: pointer;
   font-size: 13px;
-  margin-bottom: 8px;
 }
 
 .newChatRow:hover {
@@ -101,6 +108,45 @@
 
 .newChatIcon {
   font-size: 14px;
+}
+
+/* === Selection Controls === */
+.selectionControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selectAllBtn {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.selectAllBtn:hover {
+  background: #f3f4f6;
+}
+
+.deleteSelectedBtn {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid #dc2626;
+  background: #dc2626;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.deleteSelectedBtn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
 }
 
 /* === Scrollable Chats List === */
@@ -127,10 +173,29 @@
   cursor: pointer;
   font-size: 13px;
   color: #111827;
+  transition: background-color 0.2s;
 }
 
 .chatRow:hover {
   background: #f3f4f6;
+}
+
+.chatRowSelected {
+  background: #dbeafe;
+  border: 1px solid #3b82f6;
+}
+
+.chatRowSelected:hover {
+  background: #bfdbfe;
+}
+
+/* Checkbox */
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+  flex-shrink: 0;
 }
 
 .chatBullet {
@@ -138,6 +203,7 @@
   height: 8px;
   border-radius: 999px;
   border: 1px solid #9ca3af;
+  flex-shrink: 0;
 }
 
 /* Truncate long titles */
@@ -146,6 +212,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Empty state */
+.emptyState {
+  padding: 24px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 13px;
 }
 /* =========================================================
    🌙 DARK MODE — SEARCH / MODAL (PREMIUM GLASS)
@@ -221,6 +295,27 @@
   background: rgba(51,65,85,0.65);
 }
 
+:global(html.dark) .selectAllBtn {
+  background: rgba(30,41,59,0.55);
+  border-color: rgba(255,255,255,0.08);
+  color: #f9fafb;
+}
+
+:global(html.dark) .selectAllBtn:hover {
+  background: rgba(51,65,85,0.65);
+}
+
+:global(html.dark) .deleteSelectedBtn {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+:global(html.dark) .deleteSelectedBtn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
 /* ================= LIST & GROUP LABEL ================= */
 
 :global(html.dark) .groupLabel {
@@ -235,6 +330,19 @@
 
 :global(html.dark) .chatRow:hover {
   background: rgba(51,65,85,0.55);
+}
+
+:global(html.dark) .chatRowSelected {
+  background: rgba(30, 58, 138, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.5);
+}
+
+:global(html.dark) .chatRowSelected:hover {
+  background: rgba(30, 58, 138, 0.4);
+}
+
+:global(html.dark) .emptyState {
+  color: #9ca3af;
 }
 
 /* ================= CHAT BULLET ================= */

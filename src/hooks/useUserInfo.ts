@@ -15,8 +15,12 @@ export function useUserInfo() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserInfo = useCallback(async () => {
+    // Skip auth check if disabled in development
+    const isAuthDisabled = process.env.NODE_ENV === 'development' && 
+                           process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+    
     const token = getToken();
-    if (!token) {
+    if (!isAuthDisabled && !token) {
       setUserInfo(null);
       setError(null);
       return;

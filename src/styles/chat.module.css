@@ -1140,6 +1140,83 @@ background:   linear-gradient(
 }
 
 /* Answer Content (Markdown) - Simple */
+.streamingCursor {
+  display: inline-block;
+  margin-left: 2px;
+  animation: blink 1s infinite;
+  color: var(--text-primary, #111827);
+  font-weight: 500;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.metadataBadge {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.cachedBadge,
+.sourceBadge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.sourceBadge {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.tokenCount {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.streamingTableContainer {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px dashed #d1d5db;
+}
+
+.tableLoadingIndicator {
+  color: #6b7280;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.insightItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+}
+
+.insightIcon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
 .answerContent {
   margin-bottom: 1rem;
   line-height: 1.6;
@@ -1248,6 +1325,271 @@ background:   linear-gradient(
 
 .statusMessage {
   flex: 1;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.progressPercentage {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Stage Timeline */
+.stageTimeline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 0;
+  flex-wrap: wrap;
+}
+
+.stageItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 80px;
+  position: relative;
+}
+
+.stageDot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  border: 2px solid;
+  position: relative;
+}
+
+.stageDot_pending {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.stageDot_active {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border-color: #4f46e5;
+  color: white;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.stageDot_completed {
+  background: #10b981;
+  border-color: #10b981;
+  color: white;
+}
+
+.stageDot_failed {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: white;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(79, 70, 229, 0);
+  }
+}
+
+.checkIcon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.errorIcon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.activeSpinner {
+  font-size: 16px;
+  line-height: 1;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.stageLabel {
+  font-size: 11px;
+  color: inherit;
+  opacity: 0.7;
+  text-align: center;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.stageMessage {
+  font-size: 11px;
+  color: inherit;
+  opacity: 0.9;
+  text-align: center;
+  font-weight: 500;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.stageCounter {
+  font-size: 10px;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+.stageTime {
+  font-size: 10px;
+  color: #10b981;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.stageConnector {
+  width: 40px;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.1);
+  margin: 0 4px;
+  transition: background 0.3s ease;
+  flex-shrink: 0;
+}
+
+.stageConnector_completed {
+  background: #10b981;
+}
+
+.waitingMessage {
+  color: #6b7280;
+  font-style: italic;
+  padding: 8px;
+}
+
+.jsonWarning {
+  color: #dc2626;
+  font-size: 14px;
+  padding: 8px;
+  background: #fef2f2;
+  border-radius: 4px;
+  border: 1px solid #fecaca;
+}
+
+/* ========= RESEARCH PLAN INDICATOR ========= */
+
+.researchPlan {
+  background: rgba(239, 246, 255, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  max-width: 760px;
+  width: 100%;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+
+.researchPlanHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.researchPlanIcon {
+  font-size: 18px;
+}
+
+.researchPlanTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e40af;
+  margin: 0;
+}
+
+.researchPlanList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.researchPlanItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.searchTerm {
+  font-size: 13px;
+  color: #1f2937;
+  flex: 1;
+}
+
+.searchStatus {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #e5e7eb;
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
+.researchPlanNote {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.researchPlanObjectives {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.researchPlanObjectivesTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+  margin: 0 0 6px 0;
+}
+
+.researchPlanObjectivesList {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 0;
+}
+
+.researchPlanObjectivesList li {
+  font-size: 12px;
+  color: #4b5563;
+  margin-bottom: 4px;
 }
 
 /* Responsive tables */
@@ -1407,4 +1749,67 @@ background:   linear-gradient(
     rgba(11,15,26,1),
     rgba(11,15,26,0)
   );
+}
+
+/* Dark mode stage timeline */
+:global(html.dark) .stageDot_pending {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+:global(html.dark) .stageConnector {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+:global(html.dark) .stageLabel {
+  color: #e5e7eb;
+  opacity: 0.8;
+}
+
+:global(html.dark) .stageTime {
+  color: #10b981;
+}
+
+/* ================= RESEARCH PLAN ================= */
+
+:global(html.dark) .researchPlan {
+  background: rgba(30, 58, 138, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+:global(html.dark) .researchPlanTitle {
+  color: #93c5fd;
+}
+
+:global(html.dark) .researchPlanItem {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(96, 165, 250, 0.2);
+}
+
+:global(html.dark) .searchTerm {
+  color: #e5e7eb;
+}
+
+:global(html.dark) .searchStatus {
+  background: rgba(55, 65, 81, 0.8);
+  color: #9ca3af;
+}
+
+:global(html.dark) .researchPlanNote {
+  color: #9ca3af;
+  border-top-color: rgba(96, 165, 250, 0.2);
+}
+
+:global(html.dark) .researchPlanObjectives {
+  border-top-color: rgba(96, 165, 250, 0.2);
+}
+
+:global(html.dark) .researchPlanObjectivesTitle {
+  color: #93c5fd;
+}
+
+:global(html.dark) .researchPlanObjectivesList li {
+  color: #d1d5db;
 }
