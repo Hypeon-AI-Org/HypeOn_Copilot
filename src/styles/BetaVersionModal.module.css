@@ -2,23 +2,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background:
-    radial-gradient(
-      1200px 600px at 10% 20%,
-      rgba(253, 231, 243, 0.9),
-      transparent 60%
-    ),
-    radial-gradient(
-      1000px 500px at 90% 30%,
-      rgba(232, 240, 255, 0.9),
-      transparent 55%
-    ),
-    radial-gradient(
-      800px 400px at 50% 100%,
-      rgba(243, 232, 255, 0.8),
-      transparent 60%
-    ),
-    rgba(252, 252, 253, 0.95);
+  background: rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -40,15 +24,24 @@
 .modal {
   width: 500px;
   max-width: 90vw;
-  background: #ffffff;
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.30),
+    rgba(255,255,255,0.18)
+  );
+  backdrop-filter: blur(26px) saturate(1.35);
+  -webkit-backdrop-filter: blur(26px) saturate(1.35);
   border-radius: 18px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    6px 0 30px rgba(2, 6, 23, 0.20),
+    inset -1px 0 0 rgba(255,255,255,0.45);
   padding: 0;
   display: flex;
   flex-direction: column;
   color: #111827;
   animation: slideUp 0.3s ease-out;
+  font-family: var(--font-geist-sans), sans-serif;
 }
 
 @keyframes slideUp {
@@ -68,7 +61,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .badge {
@@ -76,7 +69,7 @@
   align-items: center;
   padding: 4px 12px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: #ffffff;
   font-size: 11px;
   font-weight: 700;
@@ -85,23 +78,25 @@
 }
 
 .closeBtn {
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background: transparent;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   color: #111827;
   cursor: pointer;
   font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .closeBtn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* === Content === */
@@ -135,26 +130,35 @@
 /* === Footer === */
 .footer {
   padding: 20px 24px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
   display: flex;
   justify-content: flex-end;
 }
 
 .continueBtn {
-  padding: 10px 24px;
-  border-radius: 10px;
-  border: none;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #ffffff;
+  padding: 8px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.55),
+    rgba(255,255,255,0.25)
+  );
+  backdrop-filter: blur(14px);
+  color: #111827;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.06),
+    0 4px 12px rgba(16, 24, 40, 0.04);
 }
 
 .continueBtn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: #fbfdff;
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
 .continueBtn:active {
@@ -162,62 +166,53 @@
 }
 
 /* =========================================================
-   🌙 DARK MODE
+   🌙 DARK MODE — MATCHING SIDEBAR STYLE
    ========================================================= */
 
 :global(html.dark) .overlay {
-  background:
-    radial-gradient(
-      1400px 700px at 15% 20%,
-      rgba(99, 102, 241, 0.22),
-      transparent 60%
-    ),
-    radial-gradient(
-      1200px 600px at 85% 30%,
-      rgba(236, 72, 153, 0.18),
-      transparent 55%
-    ),
-    radial-gradient(
-      900px 500px at 50% 90%,
-      rgba(139, 92, 246, 0.20),
-      transparent 60%
-    ),
-    rgba(7, 11, 24, 0.95);
-  backdrop-filter: blur(14px);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
 }
 
 :global(html.dark) .modal {
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(
+    180deg,
+    rgba(20,28,48,0.75),
+    rgba(15,23,42,0.55)
+  );
+  backdrop-filter: blur(48px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(48px) saturate(200%) brightness(1.1);
+  border: 1px solid rgba(255,255,255,0.12);
   box-shadow:
-    0 40px 120px rgba(0, 0, 0, 0.85),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  color: #f9fafb;
+    10px 0 60px rgba(0,0,0,0.85),
+    inset -1px 0 0 rgba(255,255,255,0.10);
+  color: #e5e7eb;
 }
 
 :global(html.dark) .header {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
 }
 
 :global(html.dark) .badge {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: #ffffff;
 }
 
 :global(html.dark) .closeBtn {
-  background: rgba(30, 41, 59, 0.65);
-  border-color: rgba(255, 255, 255, 0.08);
-  color: #e5e7eb;
+  background: transparent;
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f9fafb;
 }
 
 :global(html.dark) .closeBtn:hover {
-  background: rgba(51, 65, 85, 0.75);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 :global(html.dark) .title {
-  color: #f9fafb;
+  color: #e5e7eb;
 }
 
 :global(html.dark) .message {
@@ -229,15 +224,21 @@
 }
 
 :global(html.dark) .footer {
-  border-top-color: rgba(255, 255, 255, 0.08);
+  border-top-color: rgba(255, 255, 255, 0.12);
 }
 
 :global(html.dark) .continueBtn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: rgba(30,41,59,0.55);
+  backdrop-filter: blur(22px);
+  border: 1px solid rgba(255,255,255,0.12);
   color: #ffffff;
+  box-shadow:
+    0 10px 28px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.10);
 }
 
 :global(html.dark) .continueBtn:hover {
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+  background: rgba(51,65,85,0.65);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
