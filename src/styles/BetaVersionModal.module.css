@@ -1,0 +1,243 @@
+/* === Light Overlay === */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(
+      1200px 600px at 10% 20%,
+      rgba(253, 231, 243, 0.9),
+      transparent 60%
+    ),
+    radial-gradient(
+      1000px 500px at 90% 30%,
+      rgba(232, 240, 255, 0.9),
+      transparent 55%
+    ),
+    radial-gradient(
+      800px 400px at 50% 100%,
+      rgba(243, 232, 255, 0.8),
+      transparent 60%
+    ),
+    rgba(252, 252, 253, 0.95);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 130;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* === Main Modal Card === */
+.modal {
+  width: 500px;
+  max-width: 90vw;
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  color: #111827;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* === Header === */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.closeBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.closeBtn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+/* === Content === */
+.content {
+  padding: 24px;
+  flex: 1;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 16px 0;
+  line-height: 1.3;
+}
+
+.message {
+  font-size: 15px;
+  color: #374151;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+}
+
+.subMessage {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* === Footer === */
+.footer {
+  padding: 20px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.continueBtn {
+  padding: 10px 24px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.continueBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.continueBtn:active {
+  transform: translateY(0);
+}
+
+/* =========================================================
+   🌙 DARK MODE
+   ========================================================= */
+
+:global(html.dark) .overlay {
+  background:
+    radial-gradient(
+      1400px 700px at 15% 20%,
+      rgba(99, 102, 241, 0.22),
+      transparent 60%
+    ),
+    radial-gradient(
+      1200px 600px at 85% 30%,
+      rgba(236, 72, 153, 0.18),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 500px at 50% 90%,
+      rgba(139, 92, 246, 0.20),
+      transparent 60%
+    ),
+    rgba(7, 11, 24, 0.95);
+  backdrop-filter: blur(14px);
+}
+
+:global(html.dark) .modal {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 40px 120px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: #f9fafb;
+}
+
+:global(html.dark) .header {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+:global(html.dark) .badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+}
+
+:global(html.dark) .closeBtn {
+  background: rgba(30, 41, 59, 0.65);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e5e7eb;
+}
+
+:global(html.dark) .closeBtn:hover {
+  background: rgba(51, 65, 85, 0.75);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+:global(html.dark) .title {
+  color: #f9fafb;
+}
+
+:global(html.dark) .message {
+  color: #d1d5db;
+}
+
+:global(html.dark) .subMessage {
+  color: #9ca3af;
+}
+
+:global(html.dark) .footer {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+:global(html.dark) .continueBtn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+}
+
+:global(html.dark) .continueBtn:hover {
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+}
+
