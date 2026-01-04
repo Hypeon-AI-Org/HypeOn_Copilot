@@ -5,6 +5,7 @@ import { initParentAppIntegration, getParentAppOrigin } from '@/lib/parentAppInt
 import { getToken, setToken, setUserInStorage } from '@/lib/auth';
 import { ThemeProvider } from "../context/ThemeContext";
 import BetaVersionModal from "../components/BetaVersionModal";
+import TopRightActions from "@/components/TopRightActions";
 
 const PARENT_APP_URL = 'https://app.hypeon.ai';
 const BETA_MODAL_SEEN_KEY = 'hypeon_copilot_beta_modal_seen';
@@ -182,10 +183,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   };
 
-  return (
+ return (
     <ThemeProvider>
       {children}
-      {showBetaModal && <BetaVersionModal onClose={handleCloseBetaModal} />}
+
+      {/* ✅ TOP RIGHT TOGGLE + FEEDBACK */}
+      <TopRightActions />
+
+      {showBetaModal && (
+        <BetaVersionModal
+          onClose={() => {
+            setShowBetaModal(false);
+            localStorage.setItem(BETA_MODAL_SEEN_KEY, "true");
+          }}
+        />
+      )}
     </ThemeProvider>
   );
 }
+

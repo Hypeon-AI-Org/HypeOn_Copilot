@@ -126,12 +126,12 @@
   outline: none;
   resize: none;
   background: transparent;
-  font-size: 20px;
+  font-size: 15px;
   line-height: 1.45;
   color: #0f172a;
   padding-left: 20px;
   
-
+margin-top: 5px;
 }
 
 .textarea::placeholder {

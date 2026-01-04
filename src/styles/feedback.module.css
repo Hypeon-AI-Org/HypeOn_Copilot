@@ -1,0 +1,248 @@
+/* ===============================
+   FEEDBACK WRAPPER
+=============================== */
+
+.feedback {
+  display: inline-flex;
+}
+
+/* ===============================
+   BASE (LIGHT MODE DEFAULT)
+=============================== */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.modal {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 16px;
+  padding: 24px;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.subtitle {
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.field {
+  margin-top: 14px;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: block;
+  color: #334155;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  border: 1px solid #cbd5e1;
+  outline: none;
+}
+
+.textarea {
+  height: 110px;
+  resize: none;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
+}
+
+.actions {
+  margin-top: 20px;
+  text-align: right;
+}
+
+/* ===============================
+   BUTTON
+=============================== */
+
+.button {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(to right, #ec4899, #8b5cf6);
+  color: #ffffff;
+  transition: all 0.25s ease;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ===============================
+   ICON (LIGHT MODE)
+=============================== */
+
+.icon {
+  width: 39px;
+  height: 39px;
+  border-radius: 9999px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #ffffff;
+  border: none;
+  cursor: pointer;
+
+  /*  subtle premium shadow */
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.12),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* hover polish */
+.icon:hover {
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+ .feedback svg{
+    color: #343438;
+ }
+/* ===============================
+   CLOSE BUTTON
+=============================== */
+
+.close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/* ===============================
+    DARK MODE — OVERRIDES ONLY
+=============================== */
+
+:global(.dark) .feedback .overlay {
+  background: rgba(2, 6, 23, 0.75);
+}
+
+:global(.dark) .feedback .modal {
+  background: #020617;
+  color: #e5e7eb;
+  border: 1px solid #1e293b;
+}
+
+:global(.dark) .feedback .label {
+  color: #cbd5f5;
+}
+
+:global(.dark) .feedback .input,
+:global(.dark) .feedback .textarea {
+  background: #020617;
+  border: 1px solid #334155;
+  color: #e5e7eb;
+}
+
+:global(.dark) .feedback .input::placeholder,
+:global(.dark) .feedback .textarea::placeholder {
+  color: #64748b;
+}
+
+:global(.dark) .feedback .input:focus,
+:global(.dark) .feedback .textarea:focus {
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.25);
+}
+
+:global(.dark) .feedback .button {
+  background: linear-gradient(to right, #a855f7, #6366f1);
+}
+
+:global(.dark) .feedback .icon {
+  background: #0f172a;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+:global(.dark) .feedback .icon:hover {
+  background: #1e293b; /* slightly lighter slate */
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
+}
+
+:global(.dark) .feedback svg {
+  color: #e5e7eb;
+}
+
+
+.success {
+  text-align: center;
+  padding: 32px 12px;
+}
+
+.successIcon {
+  color: #22c55e; /* green */
+  margin-bottom: 12px;
+}
+
+.successTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.successText {
+  font-size: 14px;
+  opacity: 0.75;
+  margin-top: 6px;
+  color: #334155;
+}
+
+/* ===============================
+    DARK MODE — GLOBAL OVERRIDES
+=============================== */
+
+:global(.dark) .feedback .successTitle {
+  color: #e5e7eb;
+}
+
+:global(.dark) .feedback .successText {
+  color: #94a3b8;
+  opacity: 1;
+}
+
+:global(.dark) .feedback .successIcon {
+  color: #4ade80; /* slightly brighter green */
+}
