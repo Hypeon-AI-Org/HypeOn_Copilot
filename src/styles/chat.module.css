@@ -1846,24 +1846,29 @@ background:   linear-gradient(
 :global(html.dark) .chatArea::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
 }
+.progressContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.statusText {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .progressBar {
-  margin-top: 6px;
-  width: 100%;
-  max-width: 220px;
+  width: 220px;
   height: 6px;
-  background: #e5e7eb; /* soft gray */
+  background: #e5e7eb;
   border-radius: 999px;
   overflow: hidden;
 }
 
 .progressFill {
   height: 100%;
-  width: 0%;
+  background: linear-gradient(90deg, #7c3aed, #ec4899);
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    #7c3aed,
-    #ec4899
-  );
   transition: width 0.4s ease;
 }

@@ -189,26 +189,29 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
   }
 
   return (
-    <div className={styles.progressContainer}>
-      {/* Current Stage Status with Percentage on same line */}
-      <div className={styles.statusText}>
-        <span className={styles.stageIcon}>
-          {displayIcon}
-        </span>
-        <span className={styles.statusMessage} title={displayMessage}>
-          {displayMessage}
-        </span>
-        {overallProgress > 0 && overallProgress < 1 && (
-  <div className={styles.progressBar}>
-    <div
-      className={styles.progressFill}
-      style={{ width: `${overallProgress * 100}%` }}
-    />
-  </div>
-)}
+  <div className={styles.progressContainer}>
+    {/* Status Row */}
+    <div className={styles.statusText}>
+      <span className={styles.stageIcon}>
+        {displayIcon}
+      </span>
 
-      </div>
+      <span className={styles.statusMessage} title={displayMessage}>
+        {displayMessage}
+      </span>
     </div>
-  );
+
+    {/* Progress Bar BELOW the text */}
+    {overallProgress > 0 && overallProgress < 1 && (
+      <div className={styles.progressBar}>
+        <div
+          className={styles.progressFill}
+          style={{ width: `${overallProgress * 100}%` }}
+        />
+      </div>
+    )}
+  </div>
+);
+
 };
 
