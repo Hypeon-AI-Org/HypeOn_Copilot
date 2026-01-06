@@ -45,12 +45,16 @@ export default function SearchChatsModal({
     }
   };
 
- const handleDeleteSelected = () => {
-  if (selectedChats.size === 0 || !onDeleteChats) return;
-
-  onDeleteChats(Array.from(selectedChats));
-  setSelectedChats(new Set());
-};
+  const handleDeleteSelected = () => {
+    if (selectedChats.size === 0 || !onDeleteChats) return;
+    
+    const count = selectedChats.size;
+    if (confirm(`Are you sure you want to delete ${count} chat${count > 1 ? 's' : ''}?`)) {
+      onDeleteChats(Array.from(selectedChats));
+      setSelectedChats(new Set());
+      // Don't close modal - let user see the deletion happen
+    }
+  };
 
   const handleChatClick = (chatId: string, e: React.MouseEvent) => {
     // If clicking on checkbox, let the checkbox handle it
