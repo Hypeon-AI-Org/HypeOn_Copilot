@@ -779,83 +779,64 @@ export default function ChatPage() {
     }
   }
 
-  async function deleteChat(id: string) {
-    // Confirm deletion
-    if (!confirm('Are you sure you want to delete this chat?')) {
-      return;
-    }
+ async function deleteChat(id: string) {
+  // Store original state for revert
+  const originalChats = [...chats];
+  const wasActive = id === activeChatId;
 
-    // Store original state for revert
-    const originalChats = [...chats];
-    const wasActive = id === activeChatId;
+  // Optimistic UI update
+  setChats((prev) => prev.filter((c) => c.id !== id));
 
-    // Update local state optimistically
-    setChats((prev) => prev.filter((c) => c.id !== id));
+  if (wasActive) {
+    setActiveChatId(null);
+    setMessages([]);
+    setTypingDone({});
+    setTableDone({});
+    localStorage.setItem("hypeon_active_chat", "new");
+  }
 
-    if (wasActive) {
-      setActiveChatId(null);
-      setMessages([]);
-      setTypingDone({});
-      setTableDone({});
-      localStorage.setItem("hypeon_active_chat", "new");
-    }
+  const isAuthDisabled =
+    process.env.NODE_ENV === "development" &&
+    process.env.NEXT_PUBLIC_DISABLE_AUTH === "true";
 
-    // Delete from backend if we have a token
-    const isAuthDisabled = process.env.NODE_ENV === 'development' && 
-                           process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
-    
-    if (token || isAuthDisabled) {
-      setIsUpdating(true);
-      try {
-        const { ChatService } = await import('@/lib/chatService');
-        const chatService = new ChatService(apiUrl, token);
-        await chatService.deleteSession(id);
-        // Refresh sessions list
-        if (token) {
-          await backendLoadSessions();
-        } else {
-          // If no token, manually update the chats list
-          setChats((prev) => prev.filter((c) => c.id !== id));
-        }
-        
-        // If all sessions are deleted or this was the active session, create a new chat
-        const remainingChats = chats.filter((c) => c.id !== id);
-        if (remainingChats.length === 0 || wasActive) {
-          createNewChat();
-        }
-      } catch (err: any) {
-        // Handle "Session not found" gracefully when auth is disabled - session might not exist in backend
-        if (isAuthDisabled && err.message?.includes('Session not found')) {
-          // Session doesn't exist in backend, but we've already removed it from UI - that's fine
-          console.log('Session not found in backend (auth disabled) - removed from local UI');
-          
-          // If all sessions are deleted or this was the active session, create a new chat
-          const remainingChats = chats.filter((c) => c.id !== id);
-          if (remainingChats.length === 0 || wasActive) {
-            createNewChat();
-          }
-        } else {
-          // Revert on other errors
-          console.error('Failed to delete session:', err);
-          setChats(originalChats);
-          if (wasActive) {
-            setActiveChatId(id);
-            localStorage.setItem("hypeon_active_chat", id);
-          }
-          // Show error to user
-          alert(err.message || 'Failed to delete chat. Please try again.');
-        }
-      } finally {
-        setIsUpdating(false);
+  if (token || isAuthDisabled) {
+    setIsUpdating(true);
+    try {
+      const { ChatService } = await import("@/lib/chatService");
+      const chatService = new ChatService(apiUrl, token);
+
+      await chatService.deleteSession(id);
+
+      if (token) {
+        await backendLoadSessions();
       }
-    } else {
-      // No token and auth not disabled - just update local state
+
       const remainingChats = chats.filter((c) => c.id !== id);
       if (remainingChats.length === 0 || wasActive) {
         createNewChat();
       }
+    } catch (err: any) {
+      console.error("Failed to delete session:", err);
+
+      // Revert on error
+      setChats(originalChats);
+      if (wasActive) {
+        setActiveChatId(id);
+        localStorage.setItem("hypeon_active_chat", id);
+      }
+
+      alert(err.message || "Failed to delete chat. Please try again.");
+    } finally {
+      setIsUpdating(false);
+    }
+  } else {
+    const remainingChats = chats.filter((c) => c.id !== id);
+    if (remainingChats.length === 0 || wasActive) {
+      createNewChat();
     }
   }
+}
+
 
   async function deleteChats(ids: string[]) {
     if (ids.length === 0) return;
