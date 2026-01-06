@@ -199,10 +199,14 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
           {displayMessage}
         </span>
         {overallProgress > 0 && overallProgress < 1 && (
-          <span className={styles.progressPercentage}>
-            {Math.round(overallProgress * 100)}%
-          </span>
-        )}
+  <div className={styles.progressBar}>
+    <div
+      className={styles.progressFill}
+      style={{ width: `${overallProgress * 100}%` }}
+    />
+  </div>
+)}
+
       </div>
     </div>
   );
