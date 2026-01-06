@@ -1846,24 +1846,3 @@ background:   linear-gradient(
 :global(html.dark) .chatArea::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
 }
-.progressContainer {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start; /* ← important */
-  gap: 4px;                /* tighter */
-}
-
-.progressBar {
-  width: 260px;            /* more confident */
-  height: 6px;
-  background: #e5e7eb;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progressFill {
-  height: 100%;
-  background: linear-gradient(90deg, #8b5cf6, #ec4899);
-  border-radius: 999px;
-  transition: width 0.35s ease;
-}
