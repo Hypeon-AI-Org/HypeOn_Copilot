@@ -1846,3 +1846,35 @@ background:   linear-gradient(
 :global(html.dark) .chatArea::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
 }
+.inlineProgress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+}
+
+.inlineBar {
+  width: 64px;              /* small */
+  height: 4px;              /* subtle */
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.inlineFill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    #8b5cf6,
+    #ec4899
+  );
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.inlinePercent {
+  font-size: 0.8rem;
+  color: #64748b;           /* muted gray */
+  min-width: 28px;
+  text-align: right;
+}
