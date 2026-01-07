@@ -289,7 +289,7 @@ export class ChatService {
   }
 
   /**
-   * Handle fetch errors with better error messages
+    Handle fetch errors with better error messages
    */
   private handleFetchError(error: any, endpoint?: string): never {
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
