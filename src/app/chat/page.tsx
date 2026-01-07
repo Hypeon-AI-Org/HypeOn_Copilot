@@ -376,10 +376,57 @@ export default function ChatPage() {
     // Update ref for next comparison
     prevBackendMessagesRef.current = backendMessages;
     
+    // Helper function to extract clean text from content
+    const extractCleanContent = (content: any): string => {
+      // If content is not a string, try to stringify it first
+      if (typeof content !== 'string') {
+        try {
+          content = JSON.stringify(content);
+        } catch (e) {
+          return String(content);
+        }
+      }
+      
+      // Check if content contains raw response structures (like ResponseFunctionWebSearch)
+      // These patterns indicate the backend sent raw structure instead of formatted text
+      if (content.includes('ResponseFunction') || 
+          content.includes('ResponseOutputMessage') || 
+          content.includes('AnnotationURLCitation')) {
+        
+        // Try to extract the actual text from the structure
+        // Look for text fields in the response structure
+        const textMatch = content.match(/text['"]?\s*[:=]\s*['"]([^'"]+)['"]/i) ||
+                         content.match(/content['"]?\s*[:=]\s*['"]([^'"]+)['"]/i) ||
+                         content.match(/answer['"]?\s*[:=]\s*['"]([^'"]+)['"]/i);
+        
+        if (textMatch && textMatch[1]) {
+          return textMatch[1];
+        }
+        
+        // If no text found, try to parse as JSON and extract answer/text
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return parsed.text || parsed.content || parsed.answer || content;
+          }
+        } catch (e) {
+          // If parsing fails, return a fallback message
+          console.warn('Failed to parse response structure, using fallback');
+          return 'Response received, but formatting issue detected. Please try again.';
+        }
+      }
+      
+      return content;
+    };
+
     const convertedMessages: Message[] = backendMessages.map((msg, index) => {
       if (msg.role === 'user') {
         return { role: 'user', text: msg.content };
       } else {
+        // Extract clean content from message
+        const cleanContent = extractCleanContent(msg.content);
+        
         // Check if message has tables directly (from streaming response)
         if (msg.tables && msg.tables.length > 0) {
           const firstTable = msg.tables[0];
@@ -390,7 +437,7 @@ export default function ChatPage() {
           
           return {
             role: 'assistant',
-            summary: msg.content,
+            summary: cleanContent,
             table: {
               type: 'product_table' as const,
               columns: tableColumns,
@@ -401,7 +448,7 @@ export default function ChatPage() {
             // Build chatResponse from message data
             chatResponse: {
               session_id: msg.session_id,
-              answer: msg.content,
+              answer: cleanContent,
               tables: msg.tables,
               insights: msg.insights,
               artifacts: msg.artifacts,
@@ -416,7 +463,7 @@ export default function ChatPage() {
         let parsedData: any = null;
         try {
           // Check if message contains JSON
-          const jsonMatch = msg.content.match(/\{[\s\S]*\}/);
+          const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             parsedData = JSON.parse(jsonMatch[0]);
           }
@@ -462,7 +509,7 @@ export default function ChatPage() {
           const isNewMessage = newMessageIds.has(msg.message_id) && (index >= initialMessageCount);
           return {
             role: 'assistant',
-            summary: msg.content,
+            summary: cleanContent,
             table: {
               type: 'product_table' as const,
               columns: [],

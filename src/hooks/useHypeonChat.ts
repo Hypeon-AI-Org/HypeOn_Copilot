@@ -289,7 +289,12 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
               message_id: `msg-${Date.now()}`,
               session_id: newSessionId,
               role: 'assistant',
-              content: assistantContent,
+              // Ensure content is always a clean string
+              content: typeof assistantContent === 'string' 
+                ? assistantContent 
+                : (typeof assistantContent === 'object' 
+                  ? JSON.stringify(assistantContent) 
+                  : String(assistantContent)),
               created_at: new Date().toISOString(),
               token_count: tokenCount,
               // Include structured data from streaming response
