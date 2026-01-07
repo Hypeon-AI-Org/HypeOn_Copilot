@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
   
   // Security headers
   async headers() {
+    // Allow localhost connections in development
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const connectSrc = isDevelopment
+      ? "'self' http://localhost:* http://127.0.0.1:* https://app.hypeon.ai https://*.hypeon.ai"
+      : "'self' https://app.hypeon.ai https://*.hypeon.ai";
+    
     return [
       {
         source: '/:path*',
@@ -49,7 +55,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://app.hypeon.ai https://*.hypeon.ai",
+              `connect-src ${connectSrc}`,
               "frame-src 'self' https://app.hypeon.ai",
               "frame-ancestors 'self' https://app.hypeon.ai",
             ].join('; ')
@@ -62,6 +68,21 @@ const nextConfig: NextConfig = {
   // Performance optimizations
   experimental: {
     optimizePackageImports: ['react-markdown', 'lucide-react'],
+  },
+  
+  // Output configuration for production
+  output: 'standalone', // Optimized for Docker deployments
+  
+  // Turbopack configuration - specify root directory to avoid lockfile warnings
+  turbopack: {
+    root: process.cwd(),
+  },
+  
+  // Image optimization
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 };
 

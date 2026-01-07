@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import SearchChatsModal from "@/components/chatbot/SearchChatsModal";
 import { useHypeonChat } from "@/hooks/useHypeonChat";
 import { getToken, listenForTokenUpdates, requestTokenFromParent, getTokenInfo } from "@/lib/auth";
@@ -68,7 +69,7 @@ function TypingSummary({
     return () => clearInterval(timer);
   }, [text, onDone]);
 
-  return <p>{displayed}</p>;
+  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayed}</ReactMarkdown>;
 }
 
 // Wrapper component for ChatMessage with typing animation
@@ -278,6 +279,8 @@ export default function ChatPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   
   useEffect(() => {
+    // Don't update chats if we're currently updating (deleting/renaming)
+    // But allow updates during loading to show sessions as they load
     if (!isUpdating) {
       if (backendSessions.length > 0) {
         const convertedChats: ChatSession[] = backendSessions.map((s) => ({
@@ -286,16 +289,32 @@ export default function ChatPage() {
           messages: [],
           updatedAt: new Date(s.last_active_at).getTime(),
         }));
-        setChats(convertedChats);
-      } else {
-        // No sessions exist - create a new chat automatically
-        setChats([]);
-        if (!activeChatId && messages.length === 0) {
+        
+        // Merge with existing chats instead of replacing, to preserve any local state
+        setChats((prev) => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const newChats = convertedChats.filter(c => !existingIds.has(c.id));
+          // Update existing chats with backend data, add new ones
+          const updated = prev.map(chat => {
+            const backendChat = convertedChats.find(c => c.id === chat.id);
+            return backendChat || chat;
+          });
+          return [...updated, ...newChats];
+        });
+      } else if (!backendLoading) {
+        // Only handle empty sessions when not loading
+        // No sessions exist - only create a new chat if:
+        // 1. We don't have an active session ID (no session was just created)
+        // 2. We don't have any messages (not in the middle of a conversation)
+        // 3. We don't have a backend session ID (session wasn't just created)
+        if (!activeChatId && 
+            !backendSessionId && 
+            messages.length === 0) {
           createNewChat();
         }
       }
     }
-  }, [backendSessions, isUpdating]);
+  }, [backendSessions, isUpdating, activeChatId, backendSessionId, messages.length, backendLoading]);
 
   // Sync backend session ID with local active chat
   useEffect(() => {
@@ -314,6 +333,7 @@ export default function ChatPage() {
 
   // Convert backend messages to UI format
   useEffect(() => {
+    // Always convert messages, even if empty (to clear previous messages)
     // If we're loading a session, set initial count immediately to prevent animation
     if (isLoadingSession && backendMessages.length > 0) {
       setInitialMessageCount(backendMessages.length);
@@ -321,7 +341,15 @@ export default function ChatPage() {
       // Clear any new message IDs since these are loaded messages
       setNewMessageIds(new Set());
       prevBackendMessagesRef.current = backendMessages;
-      return; // Don't process new message detection for loaded sessions
+      // Continue to convert messages below - don't return early
+    } else if (isLoadingSession && backendMessages.length === 0) {
+      // If loading session but no messages yet, wait a bit
+      // Don't clear messages yet - might still be loading
+      // But set a timeout to clear loading state if messages don't arrive
+      const timeout = setTimeout(() => {
+        setIsLoadingSession(false);
+      }, 2000);
+      return () => clearTimeout(timeout);
     }
     
     // Detect new messages by comparing with previous state
@@ -446,7 +474,7 @@ export default function ChatPage() {
       }
     });
     setMessages(convertedMessages);
-  }, [backendMessages, newMessageIds, isLoadingSession]);
+  }, [backendMessages, newMessageIds, isLoadingSession, initialMessageCount]);
 
   // Sync loading state
   useEffect(() => {
@@ -577,20 +605,38 @@ export default function ChatPage() {
       );
       
       // Streaming complete - response is handled by the hook (adds to backendMessages)
-      // Update chat title if new session
-      if (!currentActiveChatId && backendSessionId) {
-        const newChat: ChatSession = {
-          id: backendSessionId,
-          title: text.slice(0, 50),
-          messages: [],
-          updatedAt: Date.now(),
-        };
-        setChats((prev) => [newChat, ...prev]);
+      // Ensure activeChatId is set if we have a session ID
+      if (backendSessionId) {
+        // Always update activeChatId to ensure it's synced
+        if (!currentActiveChatId || currentActiveChatId !== backendSessionId) {
+          setActiveChatId(backendSessionId);
+          localStorage.setItem("hypeon_active_chat", backendSessionId);
+        }
+        
+        // Update chat title if new session - add to chats list
+        if (!currentActiveChatId) {
+          const newChat: ChatSession = {
+            id: backendSessionId,
+            title: text.slice(0, 50),
+            messages: [],
+            updatedAt: Date.now(),
+          };
+          setChats((prev) => {
+            // Don't add if it already exists
+            if (prev.find(c => c.id === backendSessionId)) {
+              return prev;
+            }
+            return [newChat, ...prev];
+          });
+        }
       }
 
       // Refresh sessions to get updated list
+      // Add a small delay to ensure backend has saved the session
       if (token) {
-        await backendLoadSessions();
+        setTimeout(async () => {
+          await backendLoadSessions();
+        }, 500);
       }
     } catch (err: any) {
       console.error('Chat error:', err);
@@ -688,18 +734,32 @@ export default function ChatPage() {
   }
 
   async function selectChat(id: string) {
+    // Always load from backend if we have a token, even if it's the current session
+    // This ensures messages are properly loaded and displayed
     setIsLoadingSession(true);
+    setActiveChatId(id);
+    setTypingDone({});
+    setTableDone({});
+    localStorage.setItem("hypeon_active_chat", id);
+    
+    // Clear messages immediately to show loading state
+    setMessages([]);
     
     if (token) {
-      // Load from backend
+      // Load from backend - always reload to ensure messages are fresh
       try {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Loading session:', id);
+        }
         await backendLoadSession(id);
-        setActiveChatId(id);
-        setTypingDone({});
-        setTableDone({});
-        // initialMessageCount will be set by useEffect when messages load
-        return;
+        // Messages will be loaded by the hook and converted by useEffect
+        // isLoadingSession will be set to false by the useEffect when messages are loaded
+        // Add a fallback timeout in case messages don't load (handled by useEffect)
       } catch (err: any) {
+        setIsLoadingSession(false);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to load session:', err);
+        }
         // Handle session not found - create new chat
         const isAuthDisabled = process.env.NODE_ENV === 'development' && 
                                process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
@@ -707,6 +767,7 @@ export default function ChatPage() {
         if (err.message?.includes('Session not found') || 
             (err.message?.includes('permission') && isAuthDisabled)) {
           console.warn('Session not found - creating new chat');
+          setIsLoadingSession(false);
           createNewChat();
           return;
         }
@@ -725,16 +786,12 @@ export default function ChatPage() {
     // Fallback to local storage (works with or without token)
     const chat = chats.find((c) => c.id === id);
     if (chat) {
-      setActiveChatId(id);
       const loadedMessages = chat.messages.map((m) =>
         m.role === "assistant" ? { ...m, isNew: false } : m
       );
       setMessages(loadedMessages);
       setInitialMessageCount(loadedMessages.length); // Track initial count
-      setTypingDone({});
-      setTableDone({});
       setIsLoadingSession(false);
-      localStorage.setItem("hypeon_active_chat", id);
     } else {
       // Session doesn't exist in local storage either - create new chat
       console.warn('Session not found in local storage - creating new chat');
@@ -1224,7 +1281,7 @@ export default function ChatPage() {
                     return (
                       <div key={i} className={styles.assistantMessage}>
                         <div className={styles.answerContent}>
-                          <ReactMarkdown>{msg.summary || ''}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.summary || ''}</ReactMarkdown>
                           <span className={styles.streamingCursor}>▊</span>
                         </div>
                       </div>
@@ -1234,7 +1291,7 @@ export default function ChatPage() {
                   // Fallback to old format rendering
                   return (
                     <div key={i}>
-                      <div className={styles.plainText}>
+                      <div className={styles.answerContent}>
                         {msg.isNew && !typingDone[i] ? (
                           <TypingSummary
                             text={msg.summary}
@@ -1243,9 +1300,7 @@ export default function ChatPage() {
                             }
                           />
                         ) : (
-                          msg.summary
-                            .split("\n")
-                            .map((l, j) => <p key={j}>{l}</p>)
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.summary}</ReactMarkdown>
                         )}
                       </div>
 

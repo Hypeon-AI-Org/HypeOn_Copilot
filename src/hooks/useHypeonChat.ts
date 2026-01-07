@@ -117,14 +117,17 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
 
   // Start with a new chat on mount (user can select old sessions from sidebar)
   useEffect(() => {
-    if (token) {
-      // Clear any saved session to start fresh
+    // Only clear session if token changes from non-null to null (logout)
+    // Don't clear if token is set (login) - let the component handle loading saved session
+    if (!token) {
+      // Clear any saved session on logout
       localStorage.removeItem('current_session_id');
       // Reset to new chat state
       setSessionId(null);
       setMessages([]);
       setCurrentSession(null);
     }
+    // If token is set, don't clear - let the component load the saved session
   }, [token]);
 
   const sendMessage = useCallback(

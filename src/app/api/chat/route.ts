@@ -4,9 +4,24 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY!;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export async function POST(req: Request) {
-  const { message, model } = await req.json();
+  try {
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json(
+        { error: "API configuration error" },
+        { status: 500 }
+      );
+    }
 
-  const systemPrompt = `
+    const { message, model } = await req.json();
+
+    if (!message) {
+      return NextResponse.json(
+        { error: "Message is required" },
+        { status: 400 }
+      );
+    }
+
+    const systemPrompt = `
 You are HypeOn Copilot, an AI for ecommerce product and keyword intelligence.
 
 Your task:
@@ -97,8 +112,32 @@ IMPORTANT
     }),
   });
 
-  const data = await res.json();
-  const content = data.choices[0].message.content;
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: "API request failed", details: errorData },
+        { status: res.status }
+      );
+    }
 
-  return NextResponse.json(JSON.parse(content));
+    const data = await res.json();
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      return NextResponse.json(
+        { error: "Invalid API response" },
+        { status: 500 }
+      );
+    }
+
+    const content = data.choices[0].message.content;
+    const parsedContent = JSON.parse(content);
+
+    return NextResponse.json(parsedContent);
+  } catch (error) {
+    console.error("Chat API error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
 }

@@ -105,6 +105,14 @@ export function useUserInfo() {
 
   // Refresh user info when token changes
   useEffect(() => {
+    const isAuthDisabled = process.env.NODE_ENV === 'development' && 
+                           process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+    
+    // Skip token checking if auth is disabled - user info should persist
+    if (isAuthDisabled) {
+      return;
+    }
+    
     const checkToken = () => {
       const token = getToken();
       if (token && !userInfo) {

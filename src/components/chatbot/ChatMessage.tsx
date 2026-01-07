@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { DataTable } from './DataTable';
 import { ChatResponse, Insight, Artifact } from '@/lib/chatService';
 import styles from '../../styles/chat.module.css';
@@ -106,7 +107,7 @@ const TypingMarkdown: React.FC<{
   }, [isComplete, onComplete]);
 
   return (
-    <ReactMarkdown>{displayedText}</ReactMarkdown>
+    <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayedText}</ReactMarkdown>
   );
 };
 
@@ -137,9 +138,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     return <div className={styles.userMessage}>{response.answer}</div>;
   }
 
-  // Debug logging
+  // Debug logging (development only)
   if (process.env.NODE_ENV === 'development') {
-    console.log('ChatMessage render:', { animate, typingComplete, answerLength: response.answer?.length });
+    // Removed verbose logging for production
   }
 
   return (
@@ -153,7 +154,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             onComplete={handleAnimationComplete}
           />
         ) : (
-          <ReactMarkdown>{response.answer}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{response.answer}</ReactMarkdown>
         )}
       </div>
 
