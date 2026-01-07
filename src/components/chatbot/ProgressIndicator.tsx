@@ -198,19 +198,20 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
         <span className={styles.statusMessage} title={displayMessage}>
           {displayMessage}
         </span>
-        {overallProgress > 0 && overallProgress < 1 && (
-  <div className={styles.inlineSpinner}>
-    <div className={styles.inlineBar}>
-      <div
-        className={styles.inlineFill}
-        style={{ width: `${overallProgress * 100}%` }}
-      />
-    </div>
+       {overallProgress > 0 && overallProgress < 1 && (
+  <div className={styles.inlineProgress}>
+    
+    {/* LEFT: Spinner (replaces progress bar) */}
+    <span className={styles.inlineSpinner} />
+
+    {/* RIGHT: Percentage (same as before) */}
     <span className={styles.inlinePercent}>
       {Math.round(overallProgress * 100)}%
     </span>
+
   </div>
 )}
+
 
       </div>
     </div>

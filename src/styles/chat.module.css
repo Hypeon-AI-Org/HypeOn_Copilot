@@ -1264,86 +1264,6 @@ background:   linear-gradient(
   padding: 0;
 }
 
-/* Markdown Tables (GFM) */
-.answerContent table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1rem 0;
-  font-size: 0.9rem;
-  overflow-x: auto;
-  display: block;
-}
-
-.answerContent table thead {
-  display: table-header-group;
-}
-
-.answerContent table tbody {
-  display: table-row-group;
-}
-
-.answerContent table tr {
-  display: table-row;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.answerContent table th {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  font-weight: 600;
-  background: rgba(0, 0, 0, 0.02);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.1);
-}
-
-.answerContent table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.answerContent table tbody tr:hover {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.answerContent table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* Markdown Links */
-.answerContent a {
-  color: #2563eb;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.answerContent a:hover {
-  color: #1d4ed8;
-}
-
-/* Markdown Blockquotes */
-.answerContent blockquote {
-  margin: 1rem 0;
-  padding-left: 1rem;
-  border-left: 3px solid rgba(0, 0, 0, 0.1);
-  color: inherit;
-  opacity: 0.8;
-  font-style: italic;
-}
-
-/* Markdown Horizontal Rules */
-.answerContent hr {
-  margin: 1.5rem 0;
-  border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-/* Markdown Images */
-.answerContent img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  margin: 1rem 0;
-}
-
 /* Tables Section */
 .tablesSection {
   margin: 1rem 0;
@@ -1893,39 +1813,6 @@ background:   linear-gradient(
 :global(html.dark) .researchPlanObjectivesList li {
   color: #d1d5db;
 }
-
-/* Dark mode markdown tables */
-:global(html.dark) .answerContent table th {
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom-color: rgba(255, 255, 255, 0.15);
-  color: #e5e7eb;
-}
-
-:global(html.dark) .answerContent table td {
-  border-bottom-color: rgba(255, 255, 255, 0.08);
-  color: #e5e7eb;
-}
-
-:global(html.dark) .answerContent table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-:global(html.dark) .answerContent a {
-  color: #60a5fa;
-}
-
-:global(html.dark) .answerContent a:hover {
-  color: #93c5fd;
-}
-
-:global(html.dark) .answerContent blockquote {
-  border-left-color: rgba(255, 255, 255, 0.2);
-  color: #d1d5db;
-}
-
-:global(html.dark) .answerContent hr {
-  border-top-color: rgba(255, 255, 255, 0.15);
-}
 /* ================= SCROLLBAR (VISIBLE) ================= */
 
 .main::-webkit-scrollbar,
@@ -1959,23 +1846,69 @@ background:   linear-gradient(
 :global(html.dark) .chatArea::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
 }
+.inlineProgress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+}
 
+.inlineBar {
+  width: 64px;              /* small */
+  height: 4px;              /* subtle */
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
 
+.inlineFill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    #8b5cf6,
+    #ec4899
+  );
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
 
+.inlinePercent {
+  font-size: 0.8rem;
+  color: #64748b;           /* muted gray */
+  min-width: 28px;
+  text-align: right;
+}
+.inlineProgress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Spinner replaces bar */
 .inlineSpinner {
   width: 14px;
   height: 14px;
-  margin-left: 8px;
+  flex-shrink: 0;
   border: 2px solid rgba(0, 0, 0, 0.25);
   border-top-color: currentColor;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
-/* Dark mode support */
+/* Percentage text (unchanged look) */
+.inlinePercent {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Dark mode */
 :global(.dark) .inlineSpinner {
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.25);
   border-top-color: #ffffff;
+}
+
+:global(.dark) .inlinePercent {
+  color: #bbb;
 }
 
 @keyframes spin {
