@@ -199,7 +199,7 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
           {displayMessage}
         </span>
         {overallProgress > 0 && overallProgress < 1 && (
-  <div className={styles.inlineProgress}>
+  <div className={styles.inlineSpinner}>
     <div className={styles.inlineBar}>
       <div
         className={styles.inlineFill}
