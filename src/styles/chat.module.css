@@ -293,12 +293,12 @@ background:   linear-gradient(
 
 /* Cancel button variant */
 .cancelBtn {
-  background: linear-gradient(
-    90deg,
-    #dc2626,   /* red */
-    #ef4444,   /* lighter red */
-    #f87171    /* even lighter */
-  );
+ background:   linear-gradient(
+      90deg,
+      #2563eb,   /* blue */
+      #7c3aed,   /* purple */
+      #ec4899    /* pink */
+    );
 }
 
 .cancelBtn:hover {

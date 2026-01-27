@@ -152,6 +152,11 @@ export default function ChatPage() {
 
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+const [showBeforeGeneration, setShowBeforeGeneration] = useState(false);
+const [generationStarted, setGenerationStarted] = useState(false);
+const generationHiddenRef = useRef(false);
+
+const generationStartIndexRef = useRef<number>(0);
 
   // Get token from parent app (app.hypeon.ai) cookie or local storage
   const token = getToken() || process.env.NEXT_PUBLIC_JWT_TOKEN || null;
@@ -627,6 +632,25 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+
+useEffect(() => {
+  if (generationHiddenRef.current) return;
+
+  const newMessages = backendMessages.slice(
+    generationStartIndexRef.current
+  );
+
+  const hasNewAssistantMessage = newMessages.some(
+    m => m.role === "assistant" && m.content?.trim()
+  );
+
+  if (hasNewAssistantMessage) {
+    generationHiddenRef.current = true;
+    setShowBeforeGeneration(false); //  ALWAYS HIDES CORRECTLY
+  }
+}, [backendMessages]);
+
+
   useEffect(() => {
     if (!isTypingActive || input.length > 0) return;
 
@@ -658,6 +682,9 @@ export default function ChatPage() {
 
   async function sendMessage(text: string) {
     if (!text.trim() || backendLoading) return;
+   generationStartIndexRef.current = backendMessages.length;
+  generationHiddenRef.current = false;
+setShowBeforeGeneration(true);
 
     const currentActiveChatId = activeChatId;
     
@@ -1532,23 +1559,24 @@ export default function ChatPage() {
                   );
                 })}
 
-                {backendLoading && (
-                  <>
-                    {researchPlan && (
-                      <ResearchPlanIndicator plan={researchPlan} />
-                    )}
-                    {backendProgress ? (
-                      <ProgressContainer
-                        key={`progress-${backendProgress.stage}-${backendProgressUpdateCounter}-${backendProgress.progress}-${(backendProgress.message || '').substring(0, 50)}`}
-                        progress={backendProgress}
-                        stagesArray={backendStagesArray}
-                        loading={backendLoading}
-                      />
-                    ) : (
-                      <div className={styles.loading}>Analyzing…</div>
-                    )}
-                  </>
-                )}
+                {backendLoading && showBeforeGeneration && (
+  <>
+    {researchPlan && (
+      <ResearchPlanIndicator plan={researchPlan} />
+    )}
+    {backendProgress ? (
+      <ProgressContainer
+        key={`progress-${backendProgress.stage}-${backendProgressUpdateCounter}`}
+        progress={backendProgress}
+        stagesArray={backendStagesArray}
+        loading={backendLoading}
+      />
+    ) : (
+      <div className={styles.loading}>Analyzing…</div>
+    )}
+  </>
+)}
+
 
                 {/* Rate Limit Error Display */}
                 {rateLimitError && (
