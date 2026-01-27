@@ -3,10 +3,10 @@
  * Based on FRONTEND_INTEGRATION.md
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ChatService, ChatRequest, ChatResponse, Session, Message, TableData, Insight, Artifact, ResearchPlan, SearchTermStatus } from '@/lib/chatService';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 export interface UseHypeonChatOptions {
   apiUrl?: string;
@@ -38,6 +38,7 @@ export interface UseHypeonChatReturn {
     stage: string;
     progress: number;
     message: string;
+    icon?: string;
   } | null;
   stages: Map<string, StageInfo>; // Track all stages in execution
   stagesArray: StageInfo[]; // Array version for React re-rendering
@@ -51,6 +52,12 @@ export interface UseHypeonChatReturn {
     onChunk: (chunk: string) => void,
     onProgress?: (stage: string, progress: number, message: string) => void
   ) => Promise<void>;
+  sendMessageStreamFast: (
+    message: string,
+    onToken?: (content: string) => void,
+    onStatus?: (status: string, message: string, icon?: string) => void
+  ) => Promise<void>;
+  cancelRequest: () => void;
   loadSessions: () => Promise<void>;
   loadSession: (sessionId: string) => Promise<void>;
   newChat: () => void;
@@ -67,7 +74,7 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
-  const [progress, setProgress] = useState<{ stage: string; progress: number; message: string } | null>(null);
+  const [progress, setProgress] = useState<{ stage: string; progress: number; message: string; icon?: string } | null>(null);
   const [stages, setStages] = useState<Map<string, StageInfo>>(new Map());
   // Force re-render counter - increments on every progress update to ensure UI updates
   const [progressUpdateCounter, setProgressUpdateCounter] = useState(0);
@@ -101,10 +108,18 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
     research: 'Searching',
     analysis: 'Analyzing',
     compose: 'Composing',
+    thinking: 'Thinking',
+    searching: 'Searching',
+    writing: 'Writing',
+    generating: 'Generating',
+    web_search: 'Web Search',
     done: 'Complete',
     error: 'Error',
     unknown: 'Processing',
   };
+
+  // Abort controller for cancelling requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const chatService = new ChatService(apiUrl || API_BASE_URL, token);
 
@@ -597,6 +612,256 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
     [sessionId, loading, token, chatService]
   );
 
+  /**
+   * Send message using optimized fast streaming endpoint (production recommended)
+   * Based on FRONTEND_INTEGRATION.md
+   */
+  const sendMessageStreamFast = useCallback(
+    async (
+      message: string,
+      onToken?: (content: string) => void,
+      onStatus?: (status: string, message: string, icon?: string) => void
+    ): Promise<void> => {
+      if (!message.trim() || loading) return;
+
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+
+      setLoading(true);
+      setError(null);
+      setProgress({ stage: 'connecting', progress: 0, message: 'Connecting...', icon: 'spinner' });
+      setStages(new Map());
+      setProgressUpdateCounter(0);
+      setResearchPlan(null);
+
+      // Add user message optimistically
+      const userMessage: Message = {
+        message_id: `temp-${Date.now()}`,
+        session_id: sessionId || 'temp',
+        role: 'user',
+        content: message,
+        created_at: new Date().toISOString(),
+      };
+
+      setMessages((prev) => [...prev, userMessage]);
+
+      // Create streaming assistant message
+      const streamingMessageId = `streaming-${Date.now()}`;
+      const streamingMessage: Message = {
+        message_id: streamingMessageId,
+        session_id: sessionId || 'temp',
+        role: 'assistant',
+        content: '',
+        created_at: new Date().toISOString(),
+        isStreaming: true,
+      };
+      setMessages((prev) => [...prev, streamingMessage]);
+
+      let assistantContent = '';
+      let tokenCount = 0;
+      const streamingTables: TableData[] = [];
+      const streamingInsights: Insight[] = [];
+
+      try {
+        const request: ChatRequest = {
+          message,
+          session_id: sessionId,
+          plan: 'basic',
+          request_id: `req-${Date.now()}-${Math.random()}`,
+        };
+
+        await chatService.chatStreamFast(
+          request,
+          {
+            onStatus: (status: string, statusMessage: string, icon?: string) => {
+              // Update progress with status event
+              const progressValue = status === 'writing' ? 0.6 : status === 'thinking' ? 0.1 : 0.3;
+              setProgress({ stage: status, progress: progressValue, message: statusMessage, icon });
+              setProgressUpdateCounter(prev => prev + 1);
+              
+              // Update stages map
+              setStages(prev => {
+                const updated = new Map(prev);
+                updated.set(status, {
+                  name: status,
+                  label: stageLabels[status] || status,
+                  status: 'active',
+                  progress: progressValue,
+                  message: statusMessage,
+                });
+                return updated;
+              });
+
+              if (onStatus) {
+                onStatus(status, statusMessage, icon);
+              }
+            },
+
+            onToken: (content: string, done: boolean) => {
+              if (content) {
+                assistantContent += content;
+                tokenCount += Math.ceil(content.length / 4);
+                
+                // Update streaming message with new content
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.message_id === streamingMessageId
+                      ? { ...msg, content: assistantContent, isStreaming: !done }
+                      : msg
+                  )
+                );
+
+                if (onToken) {
+                  onToken(content);
+                }
+              }
+            },
+
+            onTable: (table: TableData) => {
+              streamingTables.push(table);
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.message_id === streamingMessageId
+                    ? { ...msg, tables: [...streamingTables] }
+                    : msg
+                )
+              );
+            },
+
+            onInsight: (insight: Insight) => {
+              streamingInsights.push(insight);
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.message_id === streamingMessageId
+                    ? { ...msg, insights: [...streamingInsights] }
+                    : msg
+                )
+              );
+            },
+
+            onDone: (newSessionId: string, tables, insights, explanation, metadata) => {
+              // Update session ID if new conversation
+              if (!sessionId) {
+                setSessionId(newSessionId);
+                localStorage.setItem('current_session_id', newSessionId);
+              }
+
+              // Finalize the message
+              const assistantMessage: Message & { isNew?: boolean; metadata?: any } = {
+                message_id: `msg-${Date.now()}`,
+                session_id: newSessionId,
+                role: 'assistant',
+                content: assistantContent,
+                created_at: new Date().toISOString(),
+                token_count: tokenCount,
+                tables: tables && tables.length > 0 ? tables : streamingTables,
+                insights: insights && insights.length > 0 ? insights : streamingInsights,
+                explanation: explanation || null,
+                isStreaming: false,
+                isNew: true,
+                metadata: metadata || {},
+              };
+
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.message_id === streamingMessageId ? assistantMessage : msg
+                )
+              );
+              
+              setProgress(null);
+              setStages(prev => {
+                const updated = new Map(prev);
+                updated.forEach((stage, key) => {
+                  if (stage.status === 'active') {
+                    updated.set(key, { ...stage, status: 'completed', progress: 1.0 });
+                  }
+                });
+                return updated;
+              });
+
+              // Refresh sessions
+              if (token) {
+                refreshSessions().catch(console.error);
+              }
+            },
+
+            onError: (error: string, code?: string) => {
+              // Include error code in the error message for detection by UI
+              const errorWithCode = code === 'RATE_LIMIT' 
+                ? `Rate limit exceeded: ${error}` 
+                : error;
+              setError(errorWithCode);
+              setProgress(null);
+              
+              // Keep partial content if available
+              if (assistantContent) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.message_id === streamingMessageId
+                      ? { ...msg, isStreaming: false, content: assistantContent }
+                      : msg
+                  )
+                );
+              } else {
+                setMessages((prev) =>
+                  prev.filter((m) => m.message_id !== streamingMessageId)
+                );
+              }
+
+              // For rate limit errors, throw to allow page to handle with retry UI
+              if (code === 'RATE_LIMIT') {
+                const rateLimitError = new Error(errorWithCode);
+                (rateLimitError as any).code = 'RATE_LIMIT';
+                throw rateLimitError;
+              }
+            },
+          },
+          abortControllerRef.current.signal
+        );
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          console.log('Request cancelled');
+          setMessages((prev) =>
+            prev.filter((m) =>
+              m.message_id !== userMessage.message_id &&
+              m.message_id !== streamingMessageId
+            )
+          );
+          return;
+        }
+        
+        setError(err.message || 'Failed to send message');
+        setProgress(null);
+        setMessages((prev) =>
+          prev.filter((m) =>
+            m.message_id !== userMessage.message_id &&
+            m.message_id !== streamingMessageId
+          )
+        );
+        throw err;
+      } finally {
+        setLoading(false);
+        abortControllerRef.current = null;
+      }
+    },
+    [sessionId, loading, token, chatService]
+  );
+
+  /**
+   * Cancel ongoing request
+   */
+  const cancelRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setLoading(false);
+      setProgress(null);
+    }
+  }, []);
+
   const loadSessions = useCallback(async () => {
     // Skip auth check if disabled in development
     const isAuthDisabled = process.env.NODE_ENV === 'development' && 
@@ -726,6 +991,8 @@ export function useHypeonChat(options: UseHypeonChatOptions = {}): UseHypeonChat
     researchPlan, // Research plan with search terms
     sendMessage,
     sendMessageStream,
+    sendMessageStreamFast, // Optimized fast streaming (production recommended)
+    cancelRequest, // Cancel ongoing request
     loadSessions,
     loadSession,
     newChat,

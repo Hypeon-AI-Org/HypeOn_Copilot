@@ -283,10 +283,28 @@ background:   linear-gradient(
 
 .SendBtn:hover {
   transform: translateY(-1px);
-
 }
 
+.SendBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
 
+/* Cancel button variant */
+.cancelBtn {
+  background: linear-gradient(
+    90deg,
+    #dc2626,   /* red */
+    #ef4444,   /* lighter red */
+    #f87171    /* even lighter */
+  );
+}
+
+.cancelBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
 
 @media (max-width: 640px) {
   .inputRow {
@@ -1915,4 +1933,278 @@ background:   linear-gradient(
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ================= RATE LIMIT ERROR ================= */
+
+.rateLimitError {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rateLimitIcon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.rateLimitContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.rateLimitMessage {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.rateLimitCountdown {
+  margin: 0;
+  font-size: 13px;
+  color: #b45309;
+}
+
+.rateLimitReady {
+  margin: 0;
+  font-size: 13px;
+  color: #059669;
+  font-weight: 500;
+}
+
+.rateLimitActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.retryButton {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+}
+
+.retryButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.retryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #d1d5db;
+  color: #6b7280;
+}
+
+.dismissButton {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #92400e;
+  background: transparent;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dismissButton:hover {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+/* Dark mode for rate limit error */
+:global(html.dark) .rateLimitError {
+  background: linear-gradient(135deg, #451a03 0%, #78350f 100%);
+  border-color: #b45309;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+:global(html.dark) .rateLimitMessage {
+  color: #fcd34d;
+}
+
+:global(html.dark) .rateLimitCountdown {
+  color: #fbbf24;
+}
+
+:global(html.dark) .rateLimitReady {
+  color: #34d399;
+}
+
+:global(html.dark) .retryButton {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+:global(html.dark) .retryButton:disabled {
+  background: #374151;
+  color: #9ca3af;
+}
+
+:global(html.dark) .dismissButton {
+  color: #fcd34d;
+  border-color: #b45309;
+}
+
+:global(html.dark) .dismissButton:hover {
+  background: rgba(180, 83, 9, 0.2);
+}
+
+/* ================= RATE LIMIT ERROR ================= */
+
+.rateLimitError {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  margin: 16px 0;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+}
+
+.rateLimitIcon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rateLimitContent {
+  flex: 1;
+}
+
+.rateLimitMessage {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.rateLimitCountdown {
+  margin: 0;
+  font-size: 13px;
+  color: #a16207;
+}
+
+.rateLimitCountdown strong {
+  font-weight: 600;
+  color: #92400e;
+}
+
+.rateLimitReady {
+  margin: 0;
+  font-size: 13px;
+  color: #15803d;
+  font-weight: 500;
+}
+
+.rateLimitActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.retryButton {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 90px;
+}
+
+.retryButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.retryButton:disabled {
+  background: #d1d5db;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.dismissButton {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: transparent;
+  color: #92400e;
+  border: 1px solid #d97706;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dismissButton:hover {
+  background: rgba(217, 119, 6, 0.1);
+}
+
+/* Dark mode for rate limit error */
+:global(html.dark) .rateLimitError {
+  background: linear-gradient(135deg, #422006 0%, #78350f 100%);
+  border-color: #b45309;
+}
+
+:global(html.dark) .rateLimitMessage {
+  color: #fde68a;
+}
+
+:global(html.dark) .rateLimitCountdown {
+  color: #fcd34d;
+}
+
+:global(html.dark) .rateLimitCountdown strong {
+  color: #fef3c7;
+}
+
+:global(html.dark) .rateLimitReady {
+  color: #86efac;
+}
+
+:global(html.dark) .retryButton {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+:global(html.dark) .retryButton:disabled {
+  background: #374151;
+  color: #9ca3af;
+}
+
+:global(html.dark) .dismissButton {
+  color: #fde68a;
+  border-color: #d97706;
+}
+
+:global(html.dark) .dismissButton:hover {
+  background: rgba(217, 119, 6, 0.2);
 }

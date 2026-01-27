@@ -6,7 +6,7 @@
 import { chatRateLimiter, sessionRateLimiter, generalRateLimiter } from './rateLimiter';
 import { log } from './logger';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 export interface ChatRequest {
   message: string;
@@ -728,6 +728,192 @@ export class ChatService {
     }
     } catch (error: any) {
       this.handleFetchError(error, '/api/v1/chat/stream');
+    }
+  }
+
+  /**
+   * Send a chat message with optimized fast streaming (production recommended)
+   * Uses /api/v1/chat/stream/fast endpoint
+   */
+  async chatStreamFast(
+    request: ChatRequest,
+    callbacks: {
+      onStatus?: (status: string, message: string, icon?: string) => void;
+      onToken?: (content: string, done: boolean) => void;
+      onTable?: (table: TableData) => void;
+      onInsight?: (insight: Insight) => void;
+      onDone?: (sessionId: string, tables?: TableData[], insights?: Insight[], explanation?: string | null, metadata?: any) => void;
+      onError?: (error: string, code?: string) => void;
+    },
+    signal?: AbortSignal
+  ): Promise<void> {
+    const { onStatus, onToken, onTable, onInsight, onDone, onError } = callbacks;
+    
+    try {
+      const requestId = request.request_id || `req-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      
+      const response = await fetch(`${this.apiBaseUrl}/api/v1/chat/stream/fast`, {
+        method: 'POST',
+        headers: this.getHeaders(requestId),
+        body: JSON.stringify({
+          message: request.message,
+          session_id: request.session_id || undefined,
+          user_id: request.user_id,
+          plan: request.plan || 'basic',
+          request_id: requestId,
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+        const errorMessage = error.detail || `Request failed: ${response.statusText}`;
+        
+        // Determine error code - use RATE_LIMIT for 429 errors
+        let errorCode = `HTTP_${response.status}`;
+        if (response.status === 429) {
+          errorCode = 'RATE_LIMIT';
+        }
+        
+        if (onError) {
+          onError(errorMessage, errorCode);
+        }
+        
+        // Create error with code for upstream handling
+        const err = new Error(errorMessage);
+        (err as any).code = errorCode;
+        throw err;
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              // Log events in development
+              if (process.env.NODE_ENV === 'development') {
+                console.log('📨 Fast SSE Event:', {
+                  type: data.type,
+                  hasContent: !!data.content,
+                  status: data.status,
+                  message: data.message?.substring(0, 50),
+                });
+              }
+              
+              switch (data.type) {
+                case 'status':
+                  if (onStatus) {
+                    onStatus(data.status, data.message, data.icon);
+                  }
+                  break;
+                
+                case 'token':
+                  if (onToken) {
+                    onToken(data.content || '', data.done || false);
+                  }
+                  break;
+                
+                case 'table':
+                  if (onTable && data.table) {
+                    const normalizedTable = this.normalizeTableData([data.table])[0];
+                    onTable(normalizedTable);
+                  }
+                  break;
+                
+                case 'insight':
+                  if (onInsight && data.insight) {
+                    onInsight(data.insight);
+                  }
+                  break;
+                
+                case 'done':
+                  if (onDone) {
+                    const normalizedTables = data.tables 
+                      ? this.normalizeTableData(data.tables)
+                      : [];
+                    const metadata = data.metadata || {};
+                    if (data.sectionTitles) {
+                      metadata.sectionTitles = data.sectionTitles;
+                    }
+                    onDone(
+                      data.session_id,
+                      normalizedTables,
+                      data.insights || [],
+                      data.explanation || null,
+                      metadata
+                    );
+                  }
+                  break;
+                
+                case 'error':
+                  if (onError) {
+                    onError(data.error || 'Unknown error', data.code);
+                  }
+                  break;
+                
+                default:
+                  // Handle legacy event types for backwards compatibility
+                  if (data.type === 'progress' && onStatus) {
+                    onStatus(data.stage || 'processing', data.message || 'Processing...', undefined);
+                  } else if ((data.type === 'chunk' || data.type === 'token') && onToken) {
+                    onToken(data.content || '', data.done || false);
+                  }
+                  break;
+              }
+            } catch (e) {
+              console.warn('Failed to parse fast streaming event:', e);
+            }
+          }
+        }
+      }
+
+      // Process remaining buffer
+      if (buffer.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(buffer.slice(6));
+          if (data.type === 'done' && onDone) {
+            const normalizedTables = data.tables 
+              ? this.normalizeTableData(data.tables)
+              : [];
+            const metadata = data.metadata || {};
+            if (data.sectionTitles) {
+              metadata.sectionTitles = data.sectionTitles;
+            }
+            onDone(
+              data.session_id,
+              normalizedTables,
+              data.insights || [],
+              data.explanation || null,
+              metadata
+            );
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Fast stream request cancelled');
+        return;
+      }
+      this.handleFetchError(error, '/api/v1/chat/stream/fast');
     }
   }
 

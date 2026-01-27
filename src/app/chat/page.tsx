@@ -155,7 +155,7 @@ export default function ChatPage() {
 
   // Get token from parent app (app.hypeon.ai) cookie or local storage
   const token = getToken() || process.env.NEXT_PUBLIC_JWT_TOKEN || null;
-  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
   // Verify token in development mode
   useEffect(() => {
@@ -241,6 +241,8 @@ export default function ChatPage() {
     researchPlan,
     sendMessage: backendSendMessage,
     sendMessageStream: backendSendMessageStream,
+    sendMessageStreamFast: backendSendMessageStreamFast,
+    cancelRequest: backendCancelRequest,
     loadSessions: backendLoadSessions,
     loadSession: backendLoadSession,
     newChat: backendNewChat,
@@ -267,6 +269,14 @@ export default function ChatPage() {
   const [initialMessageCount, setInitialMessageCount] = useState(0);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
 
+  // Rate limit error handling
+  const [rateLimitError, setRateLimitError] = useState<{
+    message: string;
+    retryAfter: number; // seconds until retry is allowed
+    lastMessage: string; // the message that was rate limited
+  } | null>(null);
+  const [retryCountdown, setRetryCountdown] = useState(0);
+
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const hasChat = messages.length > 0;
 
@@ -274,6 +284,18 @@ export default function ChatPage() {
   useEffect(() => {
     setTimeout(() => setMounted(true), 60);
   }, []);
+
+  // Countdown timer for rate limit retry
+  useEffect(() => {
+    if (retryCountdown > 0) {
+      const timer = setTimeout(() => {
+        setRetryCountdown(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (retryCountdown === 0 && rateLimitError) {
+      // Countdown finished, user can retry
+    }
+  }, [retryCountdown, rateLimitError]);
 
   // Sync backend sessions with local chats (but don't overwrite if we're in the middle of an operation)
   const [isUpdating, setIsUpdating] = useState(false);
@@ -631,6 +653,9 @@ export default function ChatPage() {
     return () => clearTimeout(t);
   }, [isTypingActive, input]);
 
+  // Flag to use fast streaming (production recommended per FRONTEND_INTEGRATION.md)
+  const useFastStreaming = process.env.NEXT_PUBLIC_USE_FAST_STREAMING !== 'false';
+
   async function sendMessage(text: string) {
     if (!text.trim() || backendLoading) return;
 
@@ -640,17 +665,28 @@ export default function ChatPage() {
     setInput("");
 
     try {
-      // Use streaming API for real-time progress updates
-      await backendSendMessageStream(
-        text,
-        // onChunk - response text is accumulated by the hook
-        (chunk: string) => {
-          // Chunks are handled internally by the hook
-        },
-        // onProgress - progress is handled by the hook, updates backendProgress state
-        undefined
-      );
-      
+      // Use fast streaming API (production recommended) or standard streaming
+      if (useFastStreaming) {
+        await backendSendMessageStreamFast(
+          text,
+          // onToken - tokens are handled internally by the hook
+          undefined,
+          // onStatus - status is handled by the hook, updates backendProgress state
+          undefined
+        );
+      } else {
+        // Fallback to standard streaming
+        await backendSendMessageStream(
+          text,
+          // onChunk - response text is accumulated by the hook
+          (chunk: string) => {
+            // Chunks are handled internally by the hook
+          },
+          // onProgress - progress is handled by the hook, updates backendProgress state
+          undefined
+        );
+      }
+
       // Streaming complete - response is handled by the hook (adds to backendMessages)
       // Ensure activeChatId is set if we have a session ID
       if (backendSessionId) {
@@ -688,6 +724,27 @@ export default function ChatPage() {
     } catch (err: any) {
       console.error('Chat error:', err);
       
+      // Check for rate limit error
+      const isRateLimitError = 
+        err.message?.toLowerCase().includes('rate limit') ||
+        err.message?.includes('429') ||
+        err.message?.includes('too many requests') ||
+        err.code === 'RATE_LIMIT';
+      
+      if (isRateLimitError) {
+        // Extract retry time from error message if available, default to 30 seconds
+        const retryMatch = err.message?.match(/(\d+)\s*seconds?/i);
+        const retryAfter = retryMatch ? parseInt(retryMatch[1], 10) : 30;
+        
+        setRateLimitError({
+          message: 'You\'re sending messages too quickly. Please wait a moment.',
+          retryAfter,
+          lastMessage: text,
+        });
+        setRetryCountdown(retryAfter);
+        return;
+      }
+      
       // Check if it's a CORS/network error
       if (err.message && (err.message.includes('Failed to connect') || err.message.includes('Failed to fetch'))) {
         console.error('⚠️ Network Error: Unable to connect to backend at', apiUrl);
@@ -700,6 +757,22 @@ export default function ChatPage() {
         alert(err.message || 'Failed to send message. Please try again.');
       }
     }
+  }
+
+  // Retry function for rate-limited messages
+  async function retryRateLimitedMessage() {
+    if (rateLimitError && retryCountdown === 0) {
+      const messageToRetry = rateLimitError.lastMessage;
+      setRateLimitError(null);
+      setRetryCountdown(0);
+      await sendMessage(messageToRetry);
+    }
+  }
+
+  // Dismiss rate limit error
+  function dismissRateLimitError() {
+    setRateLimitError(null);
+    setRetryCountdown(0);
   }
 
   // Fallback local API function (for when backend is not available)
@@ -1107,12 +1180,23 @@ export default function ChatPage() {
   </button>
 </div>
 
-  <button
-    className={styles.SendBtn}
-    onClick={() => sendMessage(input)}
-  >
-    ↑
-  </button>
+  {backendLoading ? (
+    <button
+      className={`${styles.SendBtn} ${styles.cancelBtn}`}
+      onClick={() => backendCancelRequest()}
+      title="Cancel request"
+    >
+      ✕
+    </button>
+  ) : (
+    <button
+      className={styles.SendBtn}
+      onClick={() => sendMessage(input)}
+      disabled={!input.trim()}
+    >
+      ↑
+    </button>
+  )}
 </div>
 
       </div>
@@ -1465,6 +1549,39 @@ export default function ChatPage() {
                     )}
                   </>
                 )}
+
+                {/* Rate Limit Error Display */}
+                {rateLimitError && (
+                  <div className={styles.rateLimitError}>
+                    <div className={styles.rateLimitIcon}>⏳</div>
+                    <div className={styles.rateLimitContent}>
+                      <p className={styles.rateLimitMessage}>{rateLimitError.message}</p>
+                      {retryCountdown > 0 ? (
+                        <p className={styles.rateLimitCountdown}>
+                          You can retry in <strong>{retryCountdown}</strong> second{retryCountdown !== 1 ? 's' : ''}
+                        </p>
+                      ) : (
+                        <p className={styles.rateLimitReady}>Ready to retry!</p>
+                      )}
+                    </div>
+                    <div className={styles.rateLimitActions}>
+                      <button
+                        className={styles.retryButton}
+                        onClick={retryRateLimitedMessage}
+                        disabled={retryCountdown > 0}
+                      >
+                        {retryCountdown > 0 ? `Wait ${retryCountdown}s` : 'Retry'}
+                      </button>
+                      <button
+                        className={styles.dismissButton}
+                        onClick={dismissRateLimitError}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={chatEndRef} />
               </div>
             )}

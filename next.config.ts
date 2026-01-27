@@ -10,9 +10,10 @@ const nextConfig: NextConfig = {
   // Security headers
   async headers() {
     // Allow localhost connections in development
+    // Default backend port is 8000 as per FRONTEND_INTEGRATION.md
     const isDevelopment = process.env.NODE_ENV === 'development';
     const connectSrc = isDevelopment
-      ? "'self' http://localhost:* http://127.0.0.1:* https://app.hypeon.ai https://*.hypeon.ai"
+      ? "'self' http://localhost:* http://127.0.0.1:* http://localhost:8000 https://app.hypeon.ai https://*.hypeon.ai"
       : "'self' https://app.hypeon.ai https://*.hypeon.ai";
     
     return [

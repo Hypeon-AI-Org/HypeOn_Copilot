@@ -24,26 +24,48 @@ interface ProgressIndicatorProps {
   stages?: Map<string, StageInfo> | StageInfo[]; // Optional: full stage timeline (Map or Array)
 }
 
+// Stage icons mapping based on FRONTEND_INTEGRATION.md
 const stageIcons: Record<string, string> = {
+  // Legacy stage names
   routing: '🔍',
   enhance: '✨',
   research: '🌐',
   analysis: '📊',
   compose: '✍️',
   streaming: '💬',
+  // New status event types from FRONTEND_INTEGRATION.md
+  thinking: '🤔',
+  searching: '🔍',
+  writing: '✍️',
+  generating: '⚡',
+  web_search: '🌐',
+  connecting: '🔌',
+  // Terminal states
   done: '✅',
+  complete: '✅',
   error: '❌',
   unknown: '⏳',
 };
 
+// Stage labels mapping based on FRONTEND_INTEGRATION.md
 const stageLabels: Record<string, string> = {
+  // Legacy stage names
   routing: 'Initializing',
   enhance: 'Optimizing',
   research: 'Searching',
   analysis: 'Analyzing',
   compose: 'Composing',
   streaming: 'Streaming',
+  // New status event types from FRONTEND_INTEGRATION.md
+  thinking: 'Thinking',
+  searching: 'Searching',
+  writing: 'Writing',
+  generating: 'Generating',
+  web_search: 'Searching the web',
+  connecting: 'Connecting',
+  // Terminal states
   done: 'Complete',
+  complete: 'Complete',
   error: 'Error',
   unknown: 'Processing',
 };
