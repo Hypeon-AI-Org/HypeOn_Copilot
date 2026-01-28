@@ -838,6 +838,8 @@ setHasResponseStarted(false);
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+//  Show progress only before first token
+const showProgress = backendLoading && !hasResponseStarted;
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1187,7 +1189,12 @@ setHasResponseStarted(false);
   {backendLoading ? (
     <button
       className={`${styles.SendBtn} ${styles.cancelBtn}`}
-      onClick={() => backendCancelRequest()}
+onClick={() => {
+  backendCancelRequest();
+  setHasResponseStarted(false);
+}}
+
+      
       title="Cancel request"
     >
       ✕
@@ -1535,19 +1542,17 @@ setHasResponseStarted(false);
                     </div>
                   );
                 })}
-{backendLoading && !hasResponseStarted && (
+{showProgress && (
   <>
-    {researchPlan && (
-      <ResearchPlanIndicator plan={researchPlan} />
-    )}
-
+    {researchPlan && <ResearchPlanIndicator plan={researchPlan} />}
     <ProgressContainer
       progress={backendProgress}
       stagesArray={backendStagesArray}
-      loading={backendLoading}
+      loading
     />
   </>
 )}
+
 
 
                 {/* Rate Limit Error Display */}
