@@ -68,42 +68,47 @@ transition:
 
 .topRow {
   display: flex;
-  align-items: center;
+  align-items: center;               /*  vertical centering */
   justify-content: space-between;
-  margin-bottom: 14px;
+  padding: 10px 15px 12px;
 }
 
 .headerLeft {
   display: flex;
-  align-items: center;
+  align-items: center;               /*  logo + text alignment */
   gap: 10px;
 }
 
-/* open-state logo */
+/* Logo */
 .logoWrapper {
-  width: 55px;
-  height: 55px;
-  border-radius: 999px;
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
 
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  margin-left: -5px;
-  margin-top: -5PX;
+  margin-left: -20px;
+  flex-shrink: 0;
 }
 
-/* shared image style */
 .logoImg {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-
+/* Brand text */
+.brandText {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1;                    /* 🔥 removes baseline drift */
+  color: #111;
+  margin-left: -7px;
+}
 .topToggle {
-  width: 35px;
-  height: 35px;
+  width: 29px;
+  height: 29px;
   border-radius: 50%;
 margin-top: -2px;
   /* NO FILL – FULLY TRANSPARENT */
@@ -124,6 +129,7 @@ margin-top: -2px;
   color: #111827;
 
   transition: all 0.2s ease;
+  margin-left: 60px;
 }
 
 /* Hover: ring becomes clearer */
@@ -648,13 +654,15 @@ border: 1px solid rgba(255,255,255,0.45);
   background: rgba(99,102,241,0.18);
   backdrop-filter: blur(12px);
 }
-
+.brandText
 /* ---------- SIDEBAR ICONS ---------- */
 :global(html.dark) .topToggle,
 :global(html.dark) .logoMiniArrow {
   color: #f9fafb;
 }
-
+:global(html.dark) .brandText{
+  color: #e0e7ff;
+}
 /* ---------- CONTEXT MENU ---------- */
 :global(html.dark) .contextMenu {
   background: rgba(200, 208, 225, 0.88);

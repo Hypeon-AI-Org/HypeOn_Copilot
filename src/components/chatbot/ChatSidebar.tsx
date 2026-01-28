@@ -152,15 +152,19 @@ export default function ChatGPTSidebar({
     <aside className={styles.sidebar}>
       {/* TOP */}
       <div className={styles.topRow}>
-        <div className={styles.logoWrapper}>
-            <Image
-              src="/images/hypeon.png"
-              alt="HypeOn Logo"
-              width={40}
-              height={40}
-              className={styles.logoImg}
-            />
-          </div>
+  <div className={styles.headerLeft}>
+    <div className={styles.logoWrapper}>
+      <Image
+        src="/images/hypeon.png"
+        alt="HypeOn Logo"
+        width={32}
+        height={32}
+        className={styles.logoImg}
+      />
+    </div>
+    <span className={styles.brandText}>HypeOn</span>
+  </div>
+
 
         <button className={styles.topToggle} onClick={onToggle}>
           <svg
