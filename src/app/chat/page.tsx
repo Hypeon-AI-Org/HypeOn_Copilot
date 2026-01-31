@@ -262,6 +262,11 @@ useEffect(() => {
       if (newToken) {
         // Token updated from parent app - reload to use new token
         console.log('Token updated from parent app');
+        // Treat a fresh token as a "new login" -> start a fresh chat after reload
+        try {
+          localStorage.setItem("hypeon_active_chat", "new");
+          localStorage.setItem("hypeon_force_new_chat", "1");
+        } catch {}
         window.location.reload();
       }
     });
@@ -476,23 +481,23 @@ return [...updated, ...newChats].sort(
       pendingSessionId &&
       (currentSessionId === pendingSessionId || activeChatId === pendingSessionId)
     ) {
-      setInitialMessageCount(backendMessages.length);
+      setInitialMessageCount(normalizedBackendMessages.length);
       setIsLoadingSession(false);
       setPendingSessionId(null);
       setNewMessageIds(new Set());
-      prevBackendMessagesRef.current = backendMessages;
+      prevBackendMessagesRef.current = normalizedBackendMessages;
       prevBackendSessionIdRef.current = currentSessionId;
     }
 
     // Always convert messages, even if empty (to clear previous messages)
     // If we're loading a session, set initial count immediately to prevent animation
-    if (isLoadingSession && backendMessages.length > 0) {
-      setInitialMessageCount(backendMessages.length);
+    if (isLoadingSession && normalizedBackendMessages.length > 0) {
+      setInitialMessageCount(normalizedBackendMessages.length);
       setIsLoadingSession(false);
       setPendingSessionId(null);
       // Clear any new message IDs since these are loaded messages
       setNewMessageIds(new Set());
-      prevBackendMessagesRef.current = backendMessages;
+      prevBackendMessagesRef.current = normalizedBackendMessages;
       prevBackendSessionIdRef.current = backendSessionId || null;
       // Continue to convert messages below - don't return early
     }
@@ -503,7 +508,7 @@ return [...updated, ...newChats].sort(
     
     // Detect new messages by comparing with previous state
     const prevIds = new Set(prevBackendMessagesRef.current.map(m => m.message_id));
-    const currentIds = new Set(backendMessages.map(m => m.message_id));
+    const currentIds = new Set(normalizedBackendMessages.map(m => m.message_id));
     const newlyAddedIds = new Set(
       Array.from(currentIds).filter(id => !prevIds.has(id))
     );
@@ -530,7 +535,7 @@ return [...updated, ...newChats].sort(
     }
     
     // Update ref for next comparison
-    prevBackendMessagesRef.current = backendMessages;
+    prevBackendMessagesRef.current = normalizedBackendMessages;
     prevBackendSessionIdRef.current = currentSessionId;
     
     // Helper function to extract clean text from content
@@ -577,7 +582,7 @@ return [...updated, ...newChats].sort(
       return content;
     };
 
-    const convertedMessages: Message[] = backendMessages.map((msg, index) => {
+    const convertedMessages: Message[] = normalizedBackendMessages.map((msg, index) => {
       if (msg.role === 'user') {
         return { role: 'user', text: msg.content };
       } else {
@@ -717,6 +722,22 @@ useEffect(() => {
         }
       });
       
+      // If we just received a fresh token (new login), start a fresh chat and don't auto-open history.
+      const forceNewChat = (() => {
+        try {
+          return localStorage.getItem("hypeon_force_new_chat") === "1";
+        } catch {
+          return false;
+        }
+      })();
+      if (forceNewChat) {
+        try {
+          localStorage.removeItem("hypeon_force_new_chat");
+        } catch {}
+        createNewChat();
+        return;
+      }
+
       const savedActive = localStorage.getItem("hypeon_active_chat");
       if (savedActive && savedActive !== "new") {
         // Treat initial session load as history (no typing re-animation)
@@ -1111,9 +1132,9 @@ const showProgress = backendLoading && !hasResponseStarted;
           console.log('Loading session:', id);
         }
         await backendLoadSession(id);
-        // Messages will be loaded by the hook and converted by useEffect
-        // isLoadingSession will be set to false by the useEffect when messages are loaded
-        // Add a fallback timeout in case messages don't load (handled by useEffect)
+        // Messages will be loaded by the hook and converted by the backendMessages effect.
+        // Do NOT fall back to local storage here, or it can overwrite the backend session.
+        return;
       } catch (err: any) {
         setIsLoadingSession(false);
         setPendingSessionId(null);
