@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DataTable } from './DataTable';
+import { ExportableMarkdownTable } from '@/components/chatbot/ExportableMarkdownTable';
 import { ChatResponse, Insight, Artifact } from '@/lib/chatService';
 import styles from '../../styles/chat.module.css';
 
@@ -107,7 +108,14 @@ const TypingMarkdown: React.FC<{
   }, [isComplete, onComplete]);
 
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayedText}</ReactMarkdown>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        table: ExportableMarkdownTable,
+      }}
+    >
+      {displayedText}
+    </ReactMarkdown>
   );
 };
 
@@ -154,7 +162,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             onComplete={handleAnimationComplete}
           />
         ) : (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{response.answer}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              table: ExportableMarkdownTable,
+            }}
+          >
+            {response.answer}
+          </ReactMarkdown>
         )}
       </div>
 
@@ -203,4 +218,3 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     </div>
   );
 };
-

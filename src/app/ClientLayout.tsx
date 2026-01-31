@@ -9,6 +9,7 @@ import TopRightActions from "@/components/TopRightActions";
 
 const PARENT_APP_URL = 'https://app.hypeon.ai';
 const BETA_MODAL_SEEN_KEY = 'hypeon_copilot_beta_modal_seen';
+const BETA_MODAL_DONT_SHOW_KEY = 'hypeon_copilot_beta_modal_dont_show';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isChecking, setIsChecking] = useState(true);
@@ -127,9 +128,21 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (isChecking) return; // Wait for auth check to complete
 
+    // Debug/preview: force-show modal via URL param (?betaModal=1)
+    const forceShow =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('betaModal') &&
+      ['1', 'true', 'yes'].includes(
+        (new URLSearchParams(window.location.search).get('betaModal') || '').toLowerCase()
+      );
+
     // Check if user has seen the beta modal (persistent across sessions)
     const hasSeenBetaModal = typeof window !== 'undefined' && 
                              localStorage.getItem(BETA_MODAL_SEEN_KEY) === 'true';
+
+    // Optional: user preference to never show again
+    const dontShowAgain = typeof window !== 'undefined' &&
+                          localStorage.getItem(BETA_MODAL_DONT_SHOW_KEY) === 'true';
     
     // Check if modal was shown in this session
     const sessionKey = 'hypeon_copilot_beta_modal_session';
@@ -140,10 +153,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const token = getToken();
     const hasToken = !!token || !!process.env.NEXT_PUBLIC_JWT_TOKEN;
     
-    // Show beta modal if:
-    // 1. User hasn't seen it before (first visit), OR
-    // 2. User is logged in and hasn't seen it this session
-    if ((!hasSeenBetaModal || (hasToken && !shownThisSession)) && !showBetaModal) {
+    // Show beta modal only if user hasn't seen it and hasn't opted out
+    // (or force show via URL param)
+    if ((forceShow || (!dontShowAgain && !hasSeenBetaModal)) && !showBetaModal) {
       // Wait a bit for the page to load before showing modal
       const timer = setTimeout(() => {
         setShowBetaModal(true);
@@ -174,11 +186,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  const handleCloseBetaModal = () => {
+  const handleCloseBetaModal = (dontShowAgain?: boolean) => {
     setShowBetaModal(false);
     // Mark as seen in localStorage (persistent) and sessionStorage (this session)
     if (typeof window !== 'undefined') {
       localStorage.setItem(BETA_MODAL_SEEN_KEY, 'true');
+      if (dontShowAgain) {
+        localStorage.setItem(BETA_MODAL_DONT_SHOW_KEY, 'true');
+      }
       sessionStorage.setItem('hypeon_copilot_beta_modal_session', 'true');
     }
   };
@@ -192,13 +207,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       {showBetaModal && (
         <BetaVersionModal
-          onClose={() => {
-            setShowBetaModal(false);
-            localStorage.setItem(BETA_MODAL_SEEN_KEY, "true");
-          }}
+          onClose={handleCloseBetaModal}
         />
       )}
     </ThemeProvider>
   );
 }
-

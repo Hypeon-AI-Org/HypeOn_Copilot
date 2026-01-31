@@ -1,4 +1,3 @@
-
 .sidebar,
 .sidebarCollapsed {
     position: fixed;
@@ -24,11 +23,11 @@ border-top-right-radius: 18px;
 border-right: 1px solid rgba(255, 255, 255, 0.45);
 
 
-  transition:
-    width 360ms cubic-bezier(.22,1,.36,1),
-    transform 420ms cubic-bezier(.22,1,.36,1),
-    box-shadow 360ms ease,
+   transition:
+    transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 420ms ease,
     backdrop-filter 420ms ease;
+  will-change: transform;
   box-shadow:
   6px 0 30px rgba(2, 6, 23, 0.20),
   inset -1px 0 0 rgba(255,255,255,0.45);
@@ -36,6 +35,19 @@ border-right: 1px solid rgba(255, 255, 255, 0.45);
   z-index: 1200;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.mobileOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  display: none;
+}
+
+.sidebarOpen {
+  transform: translateX(0);
 }
 
 /* OPEN SIDEBAR (full width) */
@@ -70,7 +82,7 @@ transition:
   display: flex;
   align-items: center;               /*  vertical centering */
   justify-content: space-between;
-  padding: 10px 15px 12px;
+  padding: 10px 12px 12px;
 }
 
 .headerLeft {
@@ -81,14 +93,14 @@ transition:
 
 /* Logo */
 .logoWrapper {
-  width: 50px;
-  height: 50px;
+  width: 41px;
+  height: 41px;
   border-radius: 8px;
 
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: -20px;
+  margin-left: 0;
   flex-shrink: 0;
 }
 
@@ -107,34 +119,35 @@ transition:
   margin-left: -7px;
 }
 .topToggle {
-  width: 29px;
-  height: 29px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
 margin-top: -2px;
-  /* NO FILL – FULLY TRANSPARENT */
-  background: transparent;
+  background: rgba(255, 255, 255, 0.38);
 
   /* GLASS BLUR (still works even without fill) */
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   /* GLASS RING */
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(15, 23, 42, 0.10);
   /* FLOATING DEPTH */
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  font-size: 20px;
-  color: #111827;
+  color: rgba(15, 23, 42, 0.78);
 
-  transition: all 0.2s ease;
-  margin-left: 60px;
+  margin-left: 0;
 }
 
 /* Hover: ring becomes clearer */
 .topToggle:hover {
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: rgba(236, 72, 153, 0.38);
+  color: rgba(236, 72, 153, 0.95);
+  box-shadow:
+    0 10px 26px rgba(236, 72, 153, 0.12),
+    inset 0 1px 0 rgba(255,255,255,0.5);
 }
 
 /* Press */
@@ -269,8 +282,8 @@ background: linear-gradient(
   rgba(255,255,255,0.25)
 );
 backdrop-filter: blur(14px);
-border: 1px solid rgba(255,255,255,0.45);
-
+border: 1px solid rgba(163, 142, 142, 0.45);
+margin-bottom: 10px;
   padding: 8px;
   border-radius: 12px;
 }
@@ -339,46 +352,48 @@ border: 1px solid rgba(255,255,255,0.45);
 
 /* hover: dim logo image and show arrow */
 .logoMini:hover .logoImg {
-  opacity: 0.3;
+  opacity: 6;
 }
 
 .logoMini:hover .logoMiniArrow {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgb(255, 255, 255);
 }
 
 /* collapsed icons */
+.railBottom {
+  display: flex;
+  justify-content: center;
+  align-items: center;  
+  padding: 12px 0;      
+}
+
 .railIconBtn {
-  width: 50px;
-  height: 50px;
-  border-radius: 999px;
+  width: 44px;           
+  height: 44px;
+  border-radius: 50%;
   border: none;
+
   background: transparent;
   cursor: pointer;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  transition: background 0.2s ease, transform 0.15s ease;
 }
 
 .railIconBtn:hover {
   background: #f3f4f6;
-}
-
-.railBottom {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 10px;
+  transform: translateY(-1px); /* subtle lift */
 }
 
 .avatarRail {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-    background: linear-gradient(
-    135deg,
-    #6366f1,   /* indigo */
-    #8b5cf6    /* violet */
-  );
+    background: #111827;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -388,46 +403,7 @@ border: 1px solid rgba(255,255,255,0.45);
 }
 
 
-/* overlay sits beneath sidebar but above main content */
-.sidebarOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  background: rgba(0, 0, 0, 0.0);
-  opacity: 0;
-  pointer-events: none;
-  transition: background 180ms ease, opacity 180ms ease;
-}
-
-/* when the root has .sidebar-open (JS toggles it), show overlay on small screens */
-@media (max-width: 920px) {
-  
-  .chatRoot.sidebar-open .sidebarOverlay {
-    background: rgba(0, 0, 0, 0.32);
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* hide sidebar off-canvas when not open to save space */
-  .chatRoot:not(.sidebar-open) .sidebar {
-    transform: translateX(-100%);
-  }
-
-  /* show sidebar when open */
-  .chatRoot.sidebar-open .sidebar {
-    transform: translateX(0);
-  }
-}
-
-/* On large screens keep sidebar visible and overlay hidden */
-@media (min-width: 921px) {
-  .sidebarOverlay {
-    display: none;
-  }
-  .chatRoot .sidebar {
-    transform: translateX(0);
-  }
-}
+/* (mobile overlay + open state are handled via component render + .sidebarOpen) */
 
 /* ===== Accessibility & small visuals ===== */
 
@@ -453,7 +429,7 @@ border: 1px solid rgba(255,255,255,0.45);
 }
 /* ===== CHAT LIST ===== */
 
-/* ===== CHAT LIST ===== */
+
 
 .list {
   flex: 1;            /* 🔥 REQUIRED */
@@ -477,10 +453,10 @@ border: 1px solid rgba(255,255,255,0.45);
 .listItem {
   position: relative;      
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 
-  padding: 8px 12px;
+  padding: 10px 12px;
   margin: 2px 8px;
   border-radius: 8px;
   cursor: pointer;
@@ -492,10 +468,20 @@ border: 1px solid rgba(255,255,255,0.45);
   background: #e5e7eb;
 }
 
+.active {
+  background: rgba(99, 102, 241, 0.12);
+  box-shadow: inset 3px 0 0 rgba(236, 72, 153, 0.9);
+}
+
+.active:hover {
+  background: rgba(99, 102, 241, 0.16);
+}
+
 
 
 .moreBtn {
   margin-left: auto;
+  margin-top: 2px;
   background: transparent;
   border: none;
   color: #9aa0a6;
@@ -514,11 +500,15 @@ border: 1px solid rgba(255,255,255,0.45);
 }
 .chatTitle {
   flex: 1;
-           
-  white-space: nowrap;
+  min-width: 0;
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 14px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 /* ===== CONTEXT MENU (OUTSIDE SIDEBAR) ===== */
 
@@ -577,10 +567,6 @@ border: 1px solid rgba(255,255,255,0.45);
 
 .contextMenu button:hover {
   background: rgba(0, 0, 0, 0.06);
-}
-
-.contextMenu button:hover {
-  background: #686060;
 }
 
 /* ===== DELETE ===== */
@@ -654,11 +640,32 @@ border: 1px solid rgba(255,255,255,0.45);
   background: rgba(99,102,241,0.18);
   backdrop-filter: blur(12px);
 }
-.brandText
+
+:global(html.dark) .active {
+  background: rgba(99, 102, 241, 0.20);
+  box-shadow: inset 3px 0 0 rgba(236, 72, 153, 0.95);
+}
+
+:global(html.dark) .active:hover {
+  background: rgba(99, 102, 241, 0.26);
+}
+
 /* ---------- SIDEBAR ICONS ---------- */
 :global(html.dark) .topToggle,
 :global(html.dark) .logoMiniArrow {
   color: #f9fafb;
+}
+:global(html.dark) .topToggle {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(226, 232, 240, 0.82);
+}
+:global(html.dark) .topToggle:hover {
+  border-color: rgba(236, 72, 153, 0.55);
+  color: rgba(244, 114, 182, 0.98);
+  box-shadow:
+    0 14px 34px rgba(244, 114, 182, 0.18),
+    inset 0 1px 0 rgba(255,255,255,0.08);
 }
 :global(html.dark) .brandText{
   color: #e0e7ff;
@@ -675,10 +682,6 @@ border: 1px solid rgba(255,255,255,0.45);
     inset 0 1px 0 rgba(255,255,255,0.12);
 }
 
-/* ---------- MOBILE OVERLAY ---------- */
-:global(html.dark) .sidebarOverlay {
-  background: rgba(0,0,0,0.65);
-}
 :global(html.dark) .sectionTitle{
     font-size: 11px;
   text-transform: uppercase;
@@ -686,4 +689,120 @@ border: 1px solid rgba(255,255,255,0.45);
   margin-bottom: 6px;
   margin-left: 10px;
   letter-spacing: 0.04em;
+}
+/* =========================================================
+   📱 GPT-STYLE MOBILE RESPONSIVE SIDEBAR
+   Paste at END of CSS
+========================================================= */
+
+/* -------- GLOBAL SAFETY -------- */
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* -------- MOBILE DEFAULT: OFF-CANVAS -------- */
+@media (max-width: 768px) {
+
+  /* Sidebar slides from left */
+  .sidebar {
+    width: 260px;
+    max-width: 85vw;
+    transform: translateX(-105%);
+    border-radius: 0 18px 18px 0;
+  }
+
+  .sidebar.sidebarOpen {
+    transform: translateX(0);
+  }
+
+  /* Hide collapsed rail on mobile */
+  .sidebarCollapsed {
+    display: none;
+  }
+
+  .mobileOverlay {
+    display: block;
+  }
+}
+
+/* -------- SMALL PHONES -------- */
+@media (max-width: 480px) {
+  .sidebar {
+    width: 240px;
+  }
+
+  .topRow {
+    padding: 10px 12px;
+  }
+
+  .brandText {
+    font-size: 16px;
+  }
+
+  .newChat,
+  .menuBtn {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .listItem {
+    padding: 10px 12px;
+  }
+}
+
+/* -------- TOUCH FRIENDLY -------- */
+@media (hover: none) {
+  .listItem:hover,
+  .railIconBtn:hover,
+  .menuBtn:hover,
+  .newChat:hover {
+    background: transparent;
+  }
+}
+
+/* -------- SAFE AREA (iOS) -------- */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .sidebar {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* -------- GPT-LIKE SMOOTHNESS -------- */
+.sidebar {
+  transition:
+    transform 420ms cubic-bezier(.22,1,.36,1),
+    box-shadow 260ms ease;
+}
+
+/* -------- DARK MODE MOBILE OVERLAY -------- */
+:global(html.dark) .mobileOverlay {
+  background: rgba(0, 0, 0, 0.65);
+}
+/* ===============================
+   MOBILE SIDEBAR OPEN BUTTON
+================================ */
+
+.mobileMenuBtn {
+  display: none;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  color: #111827;
+  margin-right: 6px;
+}
+
+/* Show only on mobile */
+@media (max-width: 768px) {
+  .mobileMenuBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Dark mode */
+:global(html.dark) .mobileMenuBtn {
+  color: #ffffff;
 }

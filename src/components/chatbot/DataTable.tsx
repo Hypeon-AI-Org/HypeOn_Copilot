@@ -9,6 +9,25 @@ interface DataTableProps {
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ table }) => {
+  const formatTimestampForFilename = (date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}`;
+  };
+
+  const sanitizeForFilename = (name: string) =>
+    name
+      .trim()
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '') // windows-illegal + control chars
+      .replace(/\s+/g, ' ')
+      .slice(0, 80);
+
+  const sanitizeSheetName = (name: string) =>
+    name
+      .trim()
+      .replace(/[\[\]:*?/\\]/g, '') // Excel-illegal
+      .replace(/\s+/g, ' ')
+      .slice(0, 31) || 'Sheet1';
+
   // Support both new (columns) and legacy (headers) format
   const headers = table.columns 
     ? table.columns.map(col => col.name)
@@ -27,6 +46,56 @@ export const DataTable: React.FC<DataTableProps> = ({ table }) => {
       return table.columns[columnIndex].type;
     }
     return undefined;
+  };
+
+  const coerceCellForExport = (value: any, columnIndex: number) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'number' || typeof value === 'boolean') return value;
+    if (value instanceof Date) return value;
+
+    const columnType = getColumnType(columnIndex);
+    const text = String(value).trim();
+    if (!text) return '';
+
+    const tryParseNumber = (s: string) => {
+      const cleaned = s.replace(/[, ]+/g, '').replace(/^\$/, '');
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    if (columnType === 'number' || columnType === 'currency') {
+      const parsed = tryParseNumber(text);
+      return parsed ?? text;
+    }
+
+    if (columnType === 'percentage') {
+      const pct = text.endsWith('%') ? text.slice(0, -1) : text;
+      const parsed = tryParseNumber(pct);
+      return parsed ?? text;
+    }
+
+    return text;
+  };
+
+  const exportToExcel = async () => {
+    const XLSX = await import('xlsx');
+
+    const aoa: any[][] = [
+      headers,
+      ...(Array.isArray(table.rows) ? table.rows : []).map((row: any[]) =>
+        (Array.isArray(row) ? row : []).map((cell, idx) => coerceCellForExport(cell, idx))
+      ),
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+    const workbook = XLSX.utils.book_new();
+
+    const sheetName = sanitizeSheetName(table.title || 'Table');
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+    const base = sanitizeForFilename(table.title || 'table') || 'table';
+    const filename = `${base}_${formatTimestampForFilename(new Date())}.xlsx`;
+    XLSX.writeFile(workbook, filename, { compression: true });
   };
 
   // Helper function to render cell content
@@ -75,10 +144,55 @@ export const DataTable: React.FC<DataTableProps> = ({ table }) => {
 
   return (
     <div className={styles.dataTableContainer}>
-      {/* Title */}
-      {table.title && (
-        <h4 className={styles.tableTitle}>{table.title}</h4>
-      )}
+      <div className={styles.tableHeader}>
+        {table.title ? (
+          <h4 className={styles.tableTitle}>{table.title}</h4>
+        ) : (
+          <div />
+        )}
+
+        <div className={styles.tableActions}>
+          <button
+            type="button"
+            className={styles.exportBtn}
+            onClick={exportToExcel}
+            aria-label="Download Excel"
+            title="Export to Excel"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                d="M12 3v10"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M8 11l4 4 4-4"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M4 17v3h16v-3"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
       
       {/* Table */}
       <div className={styles.tableScroll}>
@@ -109,4 +223,3 @@ export const DataTable: React.FC<DataTableProps> = ({ table }) => {
     </div>
   );
 };
-

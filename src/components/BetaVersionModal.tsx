@@ -5,11 +5,12 @@ import Portal from "./Portal";
 import styles from "../styles/BetaVersionModal.module.css";
 
 type BetaVersionModalProps = {
-  onClose: () => void;
+  onClose: (dontShowAgain?: boolean) => void;
 };
 
 export default function BetaVersionModal({ onClose }: BetaVersionModalProps) {
   const [mounted, setMounted] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -19,11 +20,11 @@ export default function BetaVersionModal({ onClose }: BetaVersionModalProps) {
 
   return (
     <Portal>
-      <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.overlay} onClick={() => onClose(dontShowAgain)}>
         <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
           <div className={styles.header}>
             <div className={styles.badge}>BETA</div>
-            <button className={styles.closeBtn} onClick={onClose}>
+            <button className={styles.closeBtn} onClick={() => onClose(dontShowAgain)}>
               ✕
             </button>
           </div>
@@ -40,7 +41,17 @@ export default function BetaVersionModal({ onClose }: BetaVersionModalProps) {
           </div>
 
           <div className={styles.footer}>
-            <button className={styles.continueBtn} onClick={onClose}>
+            <label className={styles.dontShowRow}>
+              <input
+                className={styles.checkbox}
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.target.checked)}
+              />
+              <span className={styles.dontShowLabel}>Don’t show again</span>
+            </label>
+
+            <button className={styles.continueBtn} onClick={() => onClose(dontShowAgain)}>
               Got it, let's go!
             </button>
           </div>
@@ -49,4 +60,3 @@ export default function BetaVersionModal({ onClose }: BetaVersionModalProps) {
     </Portal>
   );
 }
-

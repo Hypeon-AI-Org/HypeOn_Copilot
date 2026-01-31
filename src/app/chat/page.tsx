@@ -9,12 +9,12 @@ import SearchChatsModal from "@/components/chatbot/SearchChatsModal";
 import { useHypeonChat } from "@/hooks/useHypeonChat";
 import { getToken, listenForTokenUpdates, requestTokenFromParent, getTokenInfo } from "@/lib/auth";
 import { ChatMessage } from "@/components/chatbot/ChatMessage";
+import { ExportableMarkdownTable } from "@/components/chatbot/ExportableMarkdownTable";
 import { ProgressContainer } from "@/components/chatbot/ProgressContainer";
 import { ResearchPlanIndicator } from "@/components/chatbot/ResearchPlanIndicator";
 import { DataTable } from "@/components/chatbot/DataTable";
 import { ChatResponse, TableData } from "@/lib/chatService";
 import styles from "../../styles/chat.module.css";
-import ThemeToggle from "../../components/ThemeToggle";
 
 const ChatSidebar = dynamic(
   () => import("@/components/chatbot/ChatSidebar"),
@@ -69,7 +69,14 @@ function TypingSummary({
     return () => clearInterval(timer);
   }, [text, onDone]);
 
-  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayed}</ReactMarkdown>;
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{ table: ExportableMarkdownTable }}
+    >
+      {displayed}
+    </ReactMarkdown>
+  );
 }
 
 // Wrapper component for ChatMessage with typing animation
@@ -149,10 +156,16 @@ function StreamingTable({
 export default function ChatPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 768px)").matches;
+  });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 const [hasResponseStarted, setHasResponseStarted] = useState(false);
+const [animateNewResponse, setAnimateNewResponse] = useState(false);
 
   // Get token from parent app (app.hypeon.ai) cookie or local storage
   const token = getToken() || process.env.NEXT_PUBLIC_JWT_TOKEN || null;
@@ -177,6 +190,39 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
       }
     }
   }, [token]);
+// 🔹 ChatGPT-style sidebar offset sync
+useEffect(() => {
+  document.documentElement.style.setProperty(
+    "--sidebar-offset",
+    isMobile ? "0px" : collapsed ? "50px" : "240px"
+  );
+}, [collapsed, isMobile]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const update = () => {
+      const mobile = mediaQuery.matches;
+      setIsMobile(mobile);
+      if (mobile) {
+        setMobileSidebarOpen(false);
+      }
+    };
+
+    update();
+
+    if ("addEventListener" in mediaQuery) {
+      mediaQuery.addEventListener("change", update);
+      return () => mediaQuery.removeEventListener("change", update);
+    }
+
+    // Fallback for older browsers
+    // @ts-expect-error - legacy API
+    mediaQuery.addListener(update);
+    // @ts-expect-error - legacy API
+    return () => mediaQuery.removeListener(update);
+  }, []);
 
   // Redirect to app.hypeon.ai if no token found
   useEffect(() => {
@@ -256,7 +302,12 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
 
   // Local state for UI compatibility
   const [chats, setChats] = useState<ChatSession[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const saved = localStorage.getItem("hypeon_active_chat");
+    if (!saved || saved === "new") return null;
+    return saved;
+  });
   const [model, setModel] = useState<"basic" | "pro">("basic");
 
   
@@ -269,6 +320,7 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
   // Track initial message count when session is loaded (to distinguish loaded vs new messages)
   const [initialMessageCount, setInitialMessageCount] = useState(0);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
   // Rate limit error handling
   const [rateLimitError, setRateLimitError] = useState<{
@@ -279,7 +331,9 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
-  const hasChat = messages.length > 0;
+  const lastAssistantRef = useRef<HTMLDivElement | null>(null);
+  const prevBackendLoadingRef = useRef(false);
+  const hasChat = activeChatId !== null || messages.length > 0;
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -322,7 +376,10 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
             const backendChat = convertedChats.find(c => c.id === chat.id);
             return backendChat || chat;
           });
-          return [...updated, ...newChats];
+return [...updated, ...newChats].sort(
+  (a, b) => b.updatedAt - a.updatedAt
+);
+
         });
       } else if (!backendLoading) {
         // Only handle empty sessions when not loading
@@ -352,28 +409,97 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
   
   // Track previous backend messages to detect new ones
   const prevBackendMessagesRef = useRef<typeof backendMessages>([]);
+  const prevBackendSessionIdRef = useRef<string | null>(null);
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
+
+  const lastAssistantIndex = (() => {
+    for (let j = messages.length - 1; j >= 0; j--) {
+      if (messages[j]?.role === "assistant") return j;
+    }
+    return -1;
+  })();
 
   // Convert backend messages to UI format
   useEffect(() => {
+    const normalizeBackendMessages = (items: typeof backendMessages) => {
+      const result: typeof backendMessages = [];
+      const seenMessageIds = new Set<string>();
+
+      for (const msg of items) {
+        const messageId = (msg as any)?.message_id as string | undefined;
+        if (messageId) {
+          if (seenMessageIds.has(messageId)) continue;
+          seenMessageIds.add(messageId);
+        }
+
+        const prev = result[result.length - 1];
+        const sameSession =
+          !!prev &&
+          (prev as any)?.session_id &&
+          (prev as any)?.session_id === (msg as any)?.session_id;
+
+        // Collapse exact consecutive duplicates (can happen with some backend save/stream strategies)
+        if (prev && prev.role === msg.role && sameSession && prev.content === msg.content) {
+          continue;
+        }
+
+        // Collapse progressive assistant snapshots (keep the newest/longest one)
+        if (prev && prev.role === "assistant" && msg.role === "assistant" && sameSession) {
+          const prevContent = String(prev.content ?? "");
+          const nextContent = String(msg.content ?? "");
+          const prevHasTables = Array.isArray((prev as any).tables) && (prev as any).tables.length > 0;
+          const nextHasTables = Array.isArray((msg as any).tables) && (msg as any).tables.length > 0;
+
+          if (
+            nextContent.length >= prevContent.length &&
+            nextContent.startsWith(prevContent) &&
+            (nextHasTables || !prevHasTables)
+          ) {
+            result[result.length - 1] = msg;
+            continue;
+          }
+        }
+
+        result.push(msg);
+      }
+
+      return result;
+    };
+
+    const normalizedBackendMessages = normalizeBackendMessages(backendMessages);
+    const currentSessionId = backendSessionId || null;
+
+    // If we started loading a specific session, consider the load "complete" as soon as
+    // the hook reports that same sessionId (even if it has 0 messages).
+    if (
+      isLoadingSession &&
+      pendingSessionId &&
+      (currentSessionId === pendingSessionId || activeChatId === pendingSessionId)
+    ) {
+      setInitialMessageCount(backendMessages.length);
+      setIsLoadingSession(false);
+      setPendingSessionId(null);
+      setNewMessageIds(new Set());
+      prevBackendMessagesRef.current = backendMessages;
+      prevBackendSessionIdRef.current = currentSessionId;
+    }
+
     // Always convert messages, even if empty (to clear previous messages)
     // If we're loading a session, set initial count immediately to prevent animation
     if (isLoadingSession && backendMessages.length > 0) {
       setInitialMessageCount(backendMessages.length);
       setIsLoadingSession(false);
+      setPendingSessionId(null);
       // Clear any new message IDs since these are loaded messages
       setNewMessageIds(new Set());
       prevBackendMessagesRef.current = backendMessages;
+      prevBackendSessionIdRef.current = backendSessionId || null;
       // Continue to convert messages below - don't return early
-    } else if (isLoadingSession && backendMessages.length === 0) {
-      // If loading session but no messages yet, wait a bit
-      // Don't clear messages yet - might still be loading
-      // But set a timeout to clear loading state if messages don't arrive
-      const timeout = setTimeout(() => {
-        setIsLoadingSession(false);
-      }, 2000);
-      return () => clearTimeout(timeout);
     }
+    const sessionChanged =
+      prevBackendSessionIdRef.current !== null &&
+      currentSessionId !== null &&
+      prevBackendSessionIdRef.current !== currentSessionId;
     
     // Detect new messages by comparing with previous state
     const prevIds = new Set(prevBackendMessagesRef.current.map(m => m.message_id));
@@ -383,21 +509,29 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
     );
     
     // Update new message IDs (only keep them for a short time to trigger animation)
-    // Only track new messages if we're not loading a session
-    if (newlyAddedIds.size > 0 && !isLoadingSession) {
-      setNewMessageIds(newlyAddedIds);
+    // Only track new messages if we're not loading a session AND not switching sessions
+    const effectiveNewMessageIds =
+      !isLoadingSession && !sessionChanged ? newlyAddedIds : new Set<string>();
+
+    if (effectiveNewMessageIds.size > 0) {
+      setNewMessageIds(effectiveNewMessageIds);
       // Clear after animation would complete (estimate: 5 seconds max)
       setTimeout(() => {
         setNewMessageIds(prev => {
           const updated = new Set(prev);
-          newlyAddedIds.forEach(id => updated.delete(id));
+          effectiveNewMessageIds.forEach(id => updated.delete(id));
           return updated;
         });
       }, 5000);
+    } else if (sessionChanged) {
+      // Session switched: treat everything as loaded history (no animations)
+      setNewMessageIds(new Set());
+      setInitialMessageCount(backendMessages.length);
     }
     
     // Update ref for next comparison
     prevBackendMessagesRef.current = backendMessages;
+    prevBackendSessionIdRef.current = currentSessionId;
     
     // Helper function to extract clean text from content
     const extractCleanContent = (content: any): string => {
@@ -467,7 +601,8 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
               rows: tableRows,
             },
             // Only mark as new if it's not part of initial load
-            isNew: newMessageIds.has(msg.message_id) && (index >= initialMessageCount),
+            isNew: animateNewResponse && effectiveNewMessageIds.has(msg.message_id),
+
             // Build chatResponse from message data
             chatResponse: {
               session_id: msg.session_id,
@@ -501,7 +636,7 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
             summary: parsedData.summary,
             table: parsedData.table,
             // Only mark as new if it's not part of initial load
-            isNew: newMessageIds.has(msg.message_id) && (index >= initialMessageCount),
+            isNew: effectiveNewMessageIds.has(msg.message_id) && (index >= initialMessageCount),
           };
         } 
         // Handle new API format (answer + tables from JSON)
@@ -522,14 +657,14 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
               rows: tableRows,
             },
             // Only mark as new if it's not part of initial load
-            isNew: newMessageIds.has(msg.message_id) && (index >= initialMessageCount),
+            isNew: effectiveNewMessageIds.has(msg.message_id) && (index >= initialMessageCount),
             chatResponse: parsedData,
           };
         }
         else {
           // Plain text response - create a simple summary and empty table
           // Only mark as new if it's not part of initial load
-          const isNewMessage = newMessageIds.has(msg.message_id) && (index >= initialMessageCount);
+          const isNewMessage = effectiveNewMessageIds.has(msg.message_id) && (index >= initialMessageCount);
           return {
             role: 'assistant',
             summary: cleanContent,
@@ -544,12 +679,18 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
       }
     });
     setMessages(convertedMessages);
-  }, [backendMessages, newMessageIds, isLoadingSession, initialMessageCount]);
+  }, [backendMessages, backendSessionId, isLoadingSession, pendingSessionId, activeChatId, initialMessageCount]);
 
   // Sync loading state
   useEffect(() => {
     setLoading(backendLoading);
   }, [backendLoading]);
+//  Turn off animation after response finishes
+useEffect(() => {
+  if (!backendLoading && animateNewResponse) {
+    setAnimateNewResponse(false);
+  }
+}, [backendLoading, animateNewResponse]);
 
   const PLACEHOLDER_TEXT = "Describe what you want to analyze…";
   const [animatedPlaceholder, setAnimatedPlaceholder] = useState("");
@@ -578,6 +719,13 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
       
       const savedActive = localStorage.getItem("hypeon_active_chat");
       if (savedActive && savedActive !== "new") {
+        // Treat initial session load as history (no typing re-animation)
+        setIsLoadingSession(true);
+        setPendingSessionId(savedActive);
+        setActiveChatId(savedActive);
+        setTypingDone({});
+        setTableDone({});
+        setMessages([]);
         backendLoadSession(savedActive).catch((err) => {
           // Silently handle auth/connection errors - user can still chat
           const isConnectionError = err.message?.includes('Backend unavailable') || 
@@ -590,6 +738,8 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
           if (err.message?.includes('Session not found') || 
               (err.message?.includes('permission') && isAuthDisabled)) {
             console.warn('Saved session not found - creating new chat');
+            setIsLoadingSession(false);
+            setPendingSessionId(null);
             createNewChat();
             return;
           }
@@ -599,6 +749,8 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
           }
           // If loading fails and no active chat, create a new one
           if (!activeChatId && messages.length === 0) {
+            setIsLoadingSession(false);
+            setPendingSessionId(null);
             createNewChat();
           }
         });
@@ -657,9 +809,72 @@ const [hasResponseStarted, setHasResponseStarted] = useState(false);
   // Flag to use fast streaming (production recommended per FRONTEND_INTEGRATION.md)
   const useFastStreaming = process.env.NEXT_PUBLIC_USE_FAST_STREAMING !== 'false';
 
+  const formatTimestampForFilename = (date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+      date.getDate()
+    )}_${pad(date.getHours())}-${pad(date.getMinutes())}`;
+  };
+
+  const sanitizeForFilename = (name: string) =>
+    name
+      .trim()
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
+      .replace(/\s+/g, " ")
+      .slice(0, 80);
+
+  const sanitizeSheetName = (name: string) =>
+    name
+      .trim()
+      .replace(/[\[\]:*?/\\]/g, "")
+      .replace(/\s+/g, " ")
+      .slice(0, 31) || "Sheet1";
+
+  const coerceCellForExport = (value: any) => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "number" || typeof value === "boolean") return value;
+    const asNumber = Number(String(value).replace(/[, ]+/g, "").replace(/^\$/, ""));
+    if (Number.isFinite(asNumber) && String(value).trim() !== "") return asNumber;
+    return String(value);
+  };
+
+  const exportLegacyTableToExcel = async (
+    columns: string[],
+    rows: any[],
+    title: string
+  ) => {
+    const XLSX = await import("xlsx");
+
+    const safeRows = Array.isArray(rows)
+      ? rows.map((row) =>
+          Array.isArray(row)
+            ? row
+            : row && typeof row === "object"
+            ? Object.values(row)
+            : []
+        )
+      : [];
+
+    const aoa: any[][] = [
+      Array.isArray(columns) ? columns : [],
+      ...safeRows.map((row) => row.map((cell) => coerceCellForExport(cell))),
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+    const workbook = XLSX.utils.book_new();
+
+    const sheetName = sanitizeSheetName(title || "Table");
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+    const base = sanitizeForFilename(title || "table") || "table";
+    const filename = `${base}_${formatTimestampForFilename(new Date())}.xlsx`;
+    XLSX.writeFile(workbook, filename, { compression: true });
+  };
+
   async function sendMessage(text: string) {
     if (!text.trim() || backendLoading) return;
 setHasResponseStarted(false);
+setAnimateNewResponse(true);
 
     const currentActiveChatId = activeChatId;
     
@@ -836,8 +1051,21 @@ setHasResponseStarted(false);
   }
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+    const wasLoading = prevBackendLoadingRef.current;
+    const isLoadingNow = backendLoading;
+    prevBackendLoadingRef.current = isLoadingNow;
+
+    // While generating/streaming, keep the bottom in view (chat-like behavior)
+    if (isLoadingNow) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      return;
+    }
+
+    // When a response finishes, land at the top of the report (last assistant message)
+    if (wasLoading && !isLoadingNow) {
+      lastAssistantRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [backendLoading, messages.length]);
 //  Show progress only before first token
 const showProgress = backendLoading && !hasResponseStarted;
 
@@ -851,11 +1079,13 @@ const showProgress = backendLoading && !hasResponseStarted;
   function createNewChat() {
     backendNewChat();
     setActiveChatId(null);
+    setPendingSessionId(null);
     setMessages([]);
     setInitialMessageCount(0); // Reset initial count for new chat
     setTypingDone({});
     setTableDone({});
     setIsLoadingSession(false);
+    
     localStorage.setItem("hypeon_active_chat", "new");
   }
 
@@ -863,10 +1093,13 @@ const showProgress = backendLoading && !hasResponseStarted;
     // Always load from backend if we have a token, even if it's the current session
     // This ensures messages are properly loaded and displayed
     setIsLoadingSession(true);
+    setPendingSessionId(id);
     setActiveChatId(id);
     setTypingDone({});
     setTableDone({});
     localStorage.setItem("hypeon_active_chat", id);
+    setAnimateNewResponse(false);
+
     
     // Clear messages immediately to show loading state
     setMessages([]);
@@ -883,6 +1116,7 @@ const showProgress = backendLoading && !hasResponseStarted;
         // Add a fallback timeout in case messages don't load (handled by useEffect)
       } catch (err: any) {
         setIsLoadingSession(false);
+        setPendingSessionId(null);
         if (process.env.NODE_ENV === 'development') {
           console.error('Failed to load session:', err);
         }
@@ -894,6 +1128,7 @@ const showProgress = backendLoading && !hasResponseStarted;
             (err.message?.includes('permission') && isAuthDisabled)) {
           console.warn('Session not found - creating new chat');
           setIsLoadingSession(false);
+          setPendingSessionId(null);
           createNewChat();
           return;
         }
@@ -918,10 +1153,12 @@ const showProgress = backendLoading && !hasResponseStarted;
       setMessages(loadedMessages);
       setInitialMessageCount(loadedMessages.length); // Track initial count
       setIsLoadingSession(false);
+      setPendingSessionId(null);
     } else {
       // Session doesn't exist in local storage either - create new chat
       console.warn('Session not found in local storage - creating new chat');
       setIsLoadingSession(false);
+      setPendingSessionId(null);
       createNewChat();
     }
   }
@@ -1135,6 +1372,12 @@ const showProgress = backendLoading && !hasResponseStarted;
           onChange={(e) => {
             setInput(e.target.value);
             setIsTypingActive(false);
+            // Auto-grow textarea like ChatGPT
+            const el = e.currentTarget;
+            el.style.height = "auto";
+            const nextHeight = Math.min(el.scrollHeight, 180);
+            el.style.height = `${nextHeight}px`;
+            el.style.overflowY = el.scrollHeight > 180 ? "auto" : "hidden";
           }}
           onFocus={() => setIsTypingActive(false)}
           onBlur={() => input.length === 0 && setIsTypingActive(true)}
@@ -1144,61 +1387,78 @@ const showProgress = backendLoading && !hasResponseStarted;
 
         <div className={styles.BottomBar}>
 <div className={styles.ModelRow}>
-  {/* BASIC */}
-  <button
-    className={`${styles.ModelBox} ${
-      model === "basic" ? styles.active : ""
-    }`}
-  onClick={() => setModel("basic")}
->
-     Basic
-  </button>
+  <div className={styles.modelSwitch}>
+    <span className={styles.modelLabel}>Model</span>
 
-  {/* PRO */}
-  <button
-    className={`${styles.ModelBox} ${styles.locked}`}
-  >
-    <svg
-  width="14"
-  height="14"
-  viewBox="0 0 24 24"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
->
-  <path
-    d="M7 10V7a5 5 0 0110 0v3"
-    stroke="#000000"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  />
-  <rect
-    x="5"
-    y="10"
-    width="14"
-    height="10"
-    rx="2"
-    stroke="#000000"
-    strokeWidth={2}
-  />
-</svg>
-  Pro
-  </button>
+    <div
+      className={styles.modelSegment}
+      role="tablist"
+      aria-label="Model"
+    >
+      <button
+        type="button"
+        className={`${styles.modelTab} ${
+          model === "basic" ? styles.modelTabActive : ""
+        }`}
+        role="tab"
+        aria-selected={model === "basic"}
+        onClick={() => setModel("basic")}
+      >
+        Basic
+      </button>
+
+      <button
+        type="button"
+        className={`${styles.modelTab} ${styles.modelTabLocked}`}
+        role="tab"
+        aria-selected={false}
+        aria-disabled="true"
+        title="Pro coming soon"
+        onClick={(e) => e.preventDefault()}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M7 10V7a5 5 0 0110 0v3"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <rect
+            x="5"
+            y="10"
+            width="14"
+            height="10"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth={2}
+          />
+        </svg>
+        Pro
+      </button>
+    </div>
+  </div>
 </div>
 
   {backendLoading ? (
     <button
-      className={`${styles.SendBtn} ${styles.cancelBtn}`}
-onClick={() => {
-  backendCancelRequest();
-  setHasResponseStarted(false);
-}}
+  className={`${styles.SendBtn} ${styles.cancelBtn}`}
+  onClick={() => {
+    backendCancelRequest();
+    setHasResponseStarted(false);
+  }}
+  title="Cancel request"
+>
+  <span className={styles.stopSquare} />
+</button>
 
-      
-      title="Cancel request"
-    >
-      ✕
-    </button>
   ) : (
     <button
       className={styles.SendBtn}
@@ -1215,12 +1475,24 @@ onClick={() => {
     
   );
 
+  // Keep textarea height in sync when input is set programmatically (examples / restore)
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, 180);
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > 180 ? "auto" : "hidden";
+  }, [input]);
+
   return (
-     <><ThemeToggle /> 
     <div className={styles.chatRoot}>
       <ChatSidebar
-        collapsed={collapsed}
-        onToggle={() => setCollapsed(!collapsed)}
+        collapsed={isMobile ? false : collapsed}
+        isMobile={isMobile}
+        mobileOpen={isMobile ? mobileSidebarOpen : true}
+        onRequestClose={() => setMobileSidebarOpen(false)}
+        onToggle={() => (isMobile ? setMobileSidebarOpen(false) : setCollapsed(!collapsed))}
         onOpenSearch={() => setSearchOpen(true)}
         chats={chats.map((c) => ({ id: c.id, title: c.title }))}
         activeChatId={activeChatId}
@@ -1230,8 +1502,32 @@ onClick={() => {
         onRenameChat={renameChat}
       />
 
-      <main className={`${styles.main} ${mounted ? styles.mounted : ""}`}>
+   <main
+  className={`${styles.main} ${
+    collapsed ? styles.mainCollapsed : styles.mainExpanded
+  } ${mounted ? styles.mounted : ""}`}
+>
+  
+<div className={styles.topBar}>
+  {isMobile && (
+    <button
+      type="button"
+      className={styles.mobileMenuBtn}
+      onClick={() => setMobileSidebarOpen(true)}
+      aria-label="Open sidebar"
+    >
+      ☰
+    </button>
+  )}
+  
+  <div className={styles.mainLogo}>
+    <span className={styles.logoGradient}>HypeOn</span>
+   
+  </div>
+</div>
+
         <section className={styles.center}>
+          
           <div className={styles.contentWrapper}>
             {!hasChat && (
               <div className={styles.heroBlock}>
@@ -1367,6 +1663,8 @@ onClick={() => {
             {hasChat && (
               <div className={styles.chatArea}>
                 {messages.map((msg, i) => {
+                  const isLastAssistant = msg.role === "assistant" && i === lastAssistantIndex;
+
                   if (msg.role === "user") {
                     return (
                       <div key={i} className={styles.userMsg}>
@@ -1395,7 +1693,11 @@ onClick={() => {
                   // Show loading indicator while streaming (waiting for complete response)
                   if (isStreaming) {
                     return (
-                      <div key={i} className={styles.assistantMessage}>
+                      <div
+                        key={i}
+                        className={styles.assistantMessage}
+                        ref={isLastAssistant ? lastAssistantRef : null}
+                      >
                         <div className={styles.answerContent}>
                           <div className={styles.waitingMessage}>Generating response...</div>
                         </div>
@@ -1406,24 +1708,35 @@ onClick={() => {
                   // Use new ChatMessage component if we have new format data
                   if (chatResponse && (chatResponse.tables || chatResponse.explanation || chatResponse.answer)) {
                     // Show with animation for new messages
-                    const shouldAnimate = msg.isNew === true && i >= initialMessageCount;
+                    const shouldAnimate = msg.isNew === true && animateNewResponse;
+
                     return (
-                      <ChatMessage
-                        key={i}
-                        response={chatResponse}
-                        isUser={false}
-                        animate={shouldAnimate} // Animate new messages
-                        animationSpeed={10}
-                      />
+                      <div key={i} ref={isLastAssistant ? lastAssistantRef : null}>
+                        <ChatMessage
+                          response={chatResponse}
+                          isUser={false}
+                          animate={shouldAnimate} // Animate new messages
+                          animationSpeed={10}
+                        />
+                      </div>
                     );
                   }
                   
                   // Handle streaming messages without chatResponse (plain text streaming)
                   if (isStreaming) {
                     return (
-                      <div key={i} className={styles.assistantMessage}>
+                      <div
+                        key={i}
+                        className={styles.assistantMessage}
+                        ref={isLastAssistant ? lastAssistantRef : null}
+                      >
                         <div className={styles.answerContent}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.summary || ''}</ReactMarkdown>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{ table: ExportableMarkdownTable }}
+                          >
+                            {msg.summary || ""}
+                          </ReactMarkdown>
                           <span className={styles.streamingCursor}>▊</span>
                         </div>
                       </div>
@@ -1432,9 +1745,10 @@ onClick={() => {
 
                   // Fallback to old format rendering
                   return (
-                    <div key={i}>
+                    <div key={i} ref={isLastAssistant ? lastAssistantRef : null}>
                       <div className={styles.answerContent}>
-                        {msg.isNew && !typingDone[i] ? (
+                        {msg.isNew && animateNewResponse && !typingDone[i] ? (
+
                           <TypingSummary
                             text={msg.summary}
                             onDone={() =>
@@ -1442,12 +1756,67 @@ onClick={() => {
                             }
                           />
                         ) : (
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.summary}</ReactMarkdown>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{ table: ExportableMarkdownTable }}
+                          >
+                            {msg.summary}
+                          </ReactMarkdown>
                         )}
                       </div>
 
                       {(!msg.isNew || typingDone[i]) && msg.table.columns.length > 0 && (
                         <div className={styles.dataCard}>
+                          <div className={styles.tableHeader}>
+                            <h4 className={styles.tableTitle}>Table</h4>
+                            <div className={styles.tableActions}>
+                              <button
+                                type="button"
+                                className={styles.exportBtn}
+                                onClick={() =>
+                                  exportLegacyTableToExcel(
+                                    msg.table.columns,
+                                    msg.table.rows,
+                                    `Table_${i + 1}`
+                                  )
+                                }
+                                aria-label="Download Excel"
+                                title="Export to Excel"
+                              >
+                                <svg
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  aria-hidden="true"
+                                  focusable="false"
+                                >
+                                  <path
+                                    d="M12 3v10"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <path
+                                    d="M8 11l4 4 4-4"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <path
+                                    d="M4 17v3h16v-3"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
                           <table className={styles.table}>
                             <thead>
                               <tr>
@@ -1458,7 +1827,8 @@ onClick={() => {
                             </thead>
 
                            <tbody>
-  {msg.isNew && !tableDone[i] ? (
+{msg.isNew && animateNewResponse && !tableDone[i] ? (
+
     <StreamingTable
       key={`stream-${i}`}
       rows={Array.isArray(msg.table.rows) ? msg.table.rows : []}
@@ -1542,6 +1912,7 @@ onClick={() => {
                     </div>
                   );
                 })}
+                
 {showProgress && (
   <>
     {researchPlan && <ResearchPlanIndicator plan={researchPlan} />}
@@ -1608,6 +1979,5 @@ onClick={() => {
         />
       )}
     </div>
-      </>
   );
 } 
