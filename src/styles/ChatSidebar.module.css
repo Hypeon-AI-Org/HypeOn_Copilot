@@ -780,7 +780,7 @@ body {
   background: rgba(0, 0, 0, 0.65);
 }
 /* ===============================
-   MOBILE SIDEBAR OPEN BUTTON
+   RESPONSIVE SIDEBAR OPEN BUTTON
 ================================ */
 
 .mobileMenuBtn {
@@ -800,6 +800,10 @@ body {
     align-items: center;
     justify-content: center;
   }
+  .sidebar,
+.sidebarCollapsed {
+  background: white;
+}
 }
 
 /* Dark mode */

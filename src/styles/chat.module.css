@@ -2566,7 +2566,7 @@ body {
 
 
 /* ===============================
-   MOBILE SIDEBAR OPEN BUTTON
+   RESPONSIVE SIDEBAR OPEN BUTTON
 ================================ */
 
 .mobileMenuBtn {
@@ -2581,26 +2581,31 @@ body {
 
 /* Show only on mobile */
 @media (max-width: 768px) {
+
+  /* ===============================
+     Responsive menu button
+  =============================== */
   .mobileMenuBtn {
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
-  /* Prevent sidebar layout shift but keep spacing */
+  /* ===============================
+     Main layout reset (no sidebar shift)
+  =============================== */
   .main,
   .mainExpanded,
   .mainCollapsed {
     margin-left: 0 !important;
-    padding-left: 14px !important;   
-    padding-right: 14px !important;
-  }
-
-  .inputBottomWrapper {
     padding-left: 14px !important;
     padding-right: 14px !important;
+    box-sizing: border-box;
   }
 
+  /* ===============================
+     Top bar
+  =============================== */
   .topBar {
     padding: 10px 14px;
     height: auto;
@@ -2615,9 +2620,8 @@ body {
     gap: 2px;
     flex: 1;
     min-width: 0;
-    margin-top: 1px;
-  margin-left: 7px;
-    
+    margin-top: 2px;
+    margin-left: 6px;
   }
 
   .logoTagline {
@@ -2627,9 +2631,13 @@ body {
     text-overflow: ellipsis;
   }
 
+  /* ===============================
+     Hero / center content
+  =============================== */
   .center {
-    margin-top: 0;
-    padding: 18px 14px 24px;
+    justify-content: flex-start;     /*  important */
+    margin-top: 12px;
+    padding: 18px 14px 32px;
     gap: 18px;
   }
 
@@ -2643,27 +2651,82 @@ body {
     padding: 0 6px;
   }
 
-  .inputCard {
-    width: 100%;
+  /* ===============================
+     Bottom fixed input wrapper
+  =============================== */
+  .inputBottomWrapper {
+    padding: 8px 12px 10px !important;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(14px);
+    z-index: 120;
   }
 
+  /* ===============================
+     Input card
+  =============================== */
   .inputRow {
-    padding: 16px;
-    border-radius: 18px;
+    padding: 12px 14px !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
   }
 
-  .exampleSection {
-    width: 100%;
-    padding: 0 6px;
+  /* Remove sparkle / left icon */
+  .textareaIcon {
+    display: none !important;
   }
 
-  .exampleGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+  /* ===============================
+     Textarea
+  =============================== */
+  .textarea {
+    font-size: 15px !important;   /* iOS zoom fix */
+    line-height: 1.35;
+    padding-left: 0 !important;
+    min-height: 40px;
+    max-height: 140px;
   }
 
-  .exampleCard {
-    height: auto;
-    padding: 26px 12px 14px;
+  /* ===============================
+     Bottom bar
+  =============================== */
+  .BottomBar {
+    margin-top: 8px !important;
+  }
+
+  .modelLabel {
+    display: none !important;
+  }
+
+  .modelTab {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* ===============================
+     Buttons
+  =============================== */
+  .SendBtn,
+  .cancelBtn {
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
+  }
+}
+@media (max-width: 768px) {
+
+  /* Center main landing content */
+  .center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;   /*  vertical centering */
+    align-items: center;
+    padding: 24px 14px 32px;
+    gap: 18px;
+  }
+
+  /* Only center when there is NO chat */
+  .center.hasChat {
+    justify-content: flex-start;
   }
 }

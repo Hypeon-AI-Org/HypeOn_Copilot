@@ -356,3 +356,101 @@
 :global(html.dark) .chatTitle {
   color: #e5e7eb;
 }
+/* =========================================
+  Responsive Styles for Search Chats Modal
+========================================= */
+@media (max-width: 768px) {
+
+  /* Overlay: reduce visual heaviness */
+  .overlay {
+    backdrop-filter: blur(6px);
+  }
+
+  /* Modal card */
+  .modal {
+    width: 94vw;
+    max-height: 82vh;
+    padding: 12px 14px 14px;
+    border-radius: 14px;
+  }
+
+  /* Top search row */
+  .topRow {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .searchInput {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .closeBtn {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+
+  /* Action bar */
+  .actionBar {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  /* New chat row */
+  .newChatRow {
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 9px;
+  }
+
+  .newChatIcon {
+    font-size: 13px;
+  }
+
+  /* Selection buttons */
+  .selectAllBtn,
+  .deleteSelectedBtn {
+    padding: 7px 10px;
+    font-size: 11px;
+    border-radius: 9px;
+  }
+
+  /* Chat list spacing */
+  .listWrapper {
+    padding-right: 2px;
+  }
+
+  .groupLabel {
+    font-size: 10px;
+    margin-top: 6px;
+    margin-bottom: 3px;
+  }
+
+  /* Chat rows */
+  .chatRow {
+    padding: 6px 6px;
+    font-size: 12px;
+    border-radius: 7px;
+  }
+
+  .checkbox {
+    width: 14px;
+    height: 14px;
+  }
+
+  .chatBullet {
+    width: 7px;
+    height: 7px;
+  }
+
+  .chatTitle {
+    font-size: 12px;
+  }
+
+  /* Empty state */
+  .emptyState {
+    padding: 18px;
+    font-size: 12px;
+  }
+}

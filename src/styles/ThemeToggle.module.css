@@ -106,3 +106,52 @@
   height: 16px;
   color: #e5e7eb;
 }
+/* =========================================
+   RESPONSIVE STYLES
+========================================= */
+@media (max-width: 768px) {
+
+  /* Toggle track */
+  .toggle {
+    width: 60px;
+    height: 32px;
+    border-radius: 999px;
+  }
+
+  /* Track icons container */
+  .trackIcons {
+    padding: 0 10px;
+  }
+
+  /* Track icons */
+  .sunActive,
+  .sunInactive,
+  .moonActive,
+  .moonInactive {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Knob */
+  .knob {
+    top: 3px;
+    width: 26px;
+    height: 26px;
+  }
+
+  /* Knob positions */
+  .knobLight {
+    transform: translateX(3px);
+  }
+
+  .knobDark {
+    transform: translateX(31px);
+  }
+
+  /* Knob icons */
+  .knobIconLight,
+  .knobIconDark {
+    width: 14px;
+    height: 14px;
+  }
+}

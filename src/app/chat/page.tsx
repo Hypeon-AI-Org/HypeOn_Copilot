@@ -1592,9 +1592,7 @@ const showProgress = backendLoading && !hasResponseStarted;
                     className={styles.heroLogoImg}
                     priority
                   />
-
                 </div>
-
                 <h1 className={styles.heading}>
                   What would you like to analyze?
                 </h1>
@@ -1603,7 +1601,7 @@ const showProgress = backendLoading && !hasResponseStarted;
                 </p>
 
                 {InputBox}
-                
+                {!isMobile && (
                 <div className={styles.exampleSection}>
   <div className={styles.exampleTitle}>
     GET STARTED WITH AN EXAMPLE BELOW
@@ -1705,6 +1703,7 @@ const showProgress = backendLoading && !hasResponseStarted;
 
 
 </div>
+)}
               </div>
             )}
 
