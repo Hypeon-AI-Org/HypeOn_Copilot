@@ -309,6 +309,12 @@ useEffect(() => {
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
+    // In a fresh tab/session, start with a fresh chat (don’t auto-open last chat).
+    try {
+      if (window.sessionStorage.getItem("hypeon_chat_session_boot") !== "1") {
+        return null;
+      }
+    } catch {}
     const saved = localStorage.getItem("hypeon_active_chat");
     if (!saved || saved === "new") return null;
     return saved;
@@ -531,7 +537,7 @@ return [...updated, ...newChats].sort(
     } else if (sessionChanged) {
       // Session switched: treat everything as loaded history (no animations)
       setNewMessageIds(new Set());
-      setInitialMessageCount(backendMessages.length);
+      setInitialMessageCount(normalizedBackendMessages.length);
     }
     
     // Update ref for next comparison
@@ -704,6 +710,27 @@ useEffect(() => {
   // Load sessions from backend on mount
   useEffect(() => {
     if (token) {
+      // New browser tab/session: always start fresh (don’t auto-open saved chat).
+      // User can still pick history from the sidebar.
+      try {
+        if (window.sessionStorage.getItem("hypeon_chat_session_boot") !== "1") {
+          window.sessionStorage.setItem("hypeon_chat_session_boot", "1");
+          localStorage.setItem("hypeon_active_chat", "new");
+
+          setActiveChatId(null);
+          setPendingSessionId(null);
+          setMessages([]);
+          setTypingDone({});
+          setTableDone({});
+          setIsLoadingSession(false);
+          setInitialMessageCount(0);
+
+          return;
+        }
+      } catch {
+        // If sessionStorage is unavailable, keep existing behavior.
+      }
+
       // Only try to load from backend if we have a token
       backendLoadSessions().then(() => {
         // After loading sessions, check if we need to create a new chat
