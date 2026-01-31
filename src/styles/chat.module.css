@@ -2607,7 +2607,7 @@ body {
      Top bar
   =============================== */
   .topBar {
-    padding: 10px 14px;
+    padding: 8px 14px;
     height: auto;
     align-items: flex-start;
     justify-content: flex-start;
@@ -2641,7 +2641,7 @@ body {
   justify-content: center;
 
   padding-top: 40px;  /* height of top bar */
-  padding-bottom: 56px;
+  padding-bottom: 70px;
 
   gap: 18px;
 }
@@ -2649,6 +2649,7 @@ body {
   .heading {
     font-size: 26px;
     line-height: 1.2;
+    margin-top: -7px;
   }
 
   .subHeading {
