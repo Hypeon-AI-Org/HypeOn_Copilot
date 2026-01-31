@@ -2634,12 +2634,17 @@ body {
   /* ===============================
      Hero / center content
   =============================== */
-  .center {
-    justify-content: flex-start;     /*  important */
-    margin-top: 12px;
-    padding: 18px 14px 32px;
-    gap: 18px;
-  }
+ .center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  padding-top: 40px;  /* height of top bar */
+  padding-bottom: 56px;
+
+  gap: 18px;
+}
 
   .heading {
     font-size: 26px;
@@ -2665,7 +2670,7 @@ body {
      Input card
   =============================== */
   .inputRow {
-    padding: 12px 14px !important;
+    padding: 12px 16px !important;
     border-radius: 16px !important;
     box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
   }
@@ -2679,7 +2684,7 @@ body {
      Textarea
   =============================== */
   .textarea {
-    font-size: 15px !important;   /* iOS zoom fix */
+    font-size: 14px !important;   /* iOS zoom fix */
     line-height: 1.35;
     padding-left: 0 !important;
     min-height: 40px;
@@ -2714,16 +2719,7 @@ body {
 }
 @media (max-width: 768px) {
 
-  /* Center main landing content */
-  .center {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;   /*  vertical centering */
-    align-items: center;
-    padding: 24px 14px 32px;
-    gap: 18px;
-  }
+  
 
   /* Only center when there is NO chat */
   .center.hasChat {
