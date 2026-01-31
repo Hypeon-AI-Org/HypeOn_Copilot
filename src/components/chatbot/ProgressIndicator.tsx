@@ -2,7 +2,22 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import styles from '../../styles/chat.module.css';
+import {
+  Search,
+  Sparkles,
+  Globe,
+  BarChart3,
+  PenLine,
+  MessageSquare,
+  Brain,
+  Zap,
+  Plug,
+  CheckCircle2,
+  XCircle,
+  Clock,
+} from 'lucide-react';
 
+import type { LucideIcon } from 'lucide-react';
 const MIN_DISPLAY_DURATION = 800; // 0.8 seconds in milliseconds
 
 export interface StageInfo {
@@ -24,29 +39,31 @@ interface ProgressIndicatorProps {
   stages?: Map<string, StageInfo> | StageInfo[]; // Optional: full stage timeline (Map or Array)
 }
 
-// Stage icons mapping based on FRONTEND_INTEGRATION.md
-const stageIcons: Record<string, string> = {
-  // Legacy stage names
-  routing: '🔍',
-  enhance: '✨',
-  research: '🌐',
-  analysis: '📊',
-  compose: '✍️',
-  streaming: '💬',
-  // New status event types from FRONTEND_INTEGRATION.md
-  thinking: '🤔',
-  searching: '🔍',
-  writing: '✍️',
-  generating: '⚡',
-  web_search: '🌐',
-  connecting: '🔌',
-  // Terminal states
-  done: '✅',
-  complete: '✅',
-  error: '❌',
-  unknown: '⏳',
-};
 
+
+export const stageIcons: Record<string, LucideIcon> = {
+  // Legacy stage names
+  routing: Search,
+  enhance: Sparkles,
+  research: Globe,
+  analysis: BarChart3,
+  compose: PenLine,
+  streaming: MessageSquare,
+
+  // New status event types
+  thinking: Brain,
+  searching: Search,
+  writing: PenLine,
+  generating: Zap,
+  web_search: Globe,
+  connecting: Plug,
+
+  // Terminal states
+  done: CheckCircle2,
+  complete: CheckCircle2,
+  error: XCircle,
+  unknown: Clock,
+};
 // Stage labels mapping based on FRONTEND_INTEGRATION.md
 const stageLabels: Record<string, string> = {
   // Legacy stage names
@@ -196,6 +213,7 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
         return sum + (s.progress * stageWeight);
       }, 0)
     : displayedProgress;
+const Icon = displayIcon;
 
   // Log for debugging - shows what message will be displayed
   if (process.env.NODE_ENV === 'development') {
@@ -215,8 +233,9 @@ export const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
       {/* Current Stage Status with Percentage on same line */}
       <div className={styles.statusText}>
         <span className={styles.stageIcon}>
-          {displayIcon}
-        </span>
+  <Icon size={16} strokeWidth={1.75} />
+</span>
+
         <span className={styles.statusMessage} title={displayMessage}>
           {displayMessage}
         </span>

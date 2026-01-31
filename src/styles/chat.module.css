@@ -1072,24 +1072,28 @@ body {
 
 /* ===================== SIMPLE TABLE STYLING ===================== */
 
-/* Table Container - Transparent */
+
+/* ===============================
+   Container
+================================ */
 .dataTableContainer {
   margin: 1rem 0;
   background: transparent;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-/* Header row (title + export button) */
+/* ===============================
+   Header (Title + Export)
+================================ */
 .tableHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px; /* aligns with table cells */
+  padding: 0 12px;
 }
 
-/* Table Title */
 .tableTitle {
   margin: 0;
   font-size: 0.9rem;
@@ -1097,7 +1101,6 @@ body {
   color: inherit;
 }
 
-/* Actions */
 .tableActions {
   display: flex;
   align-items: center;
@@ -1105,9 +1108,6 @@ body {
 
 /* Export button */
 .exportBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.12);
@@ -1117,12 +1117,8 @@ body {
   font-weight: 600;
   color: inherit;
   cursor: pointer;
+  white-space: nowrap;
   transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
-}
-
-.exportBtn svg {
-  width: 16px;
-  height: 16px;
 }
 
 .exportBtn:hover {
@@ -1131,7 +1127,7 @@ body {
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
 }
 
-/* Dark mode */
+/* Dark mode export */
 :global(html.dark) .exportBtn {
   border-color: rgba(255, 255, 255, 0.14);
   background: rgba(30, 41, 59, 0.55);
@@ -1141,15 +1137,60 @@ body {
   background: rgba(51, 65, 85, 0.7);
 }
 
-/* Table Scroll */
+/* ===============================
+   Scroll Wrapper (PRO)
+================================ */
 .tableScroll {
+  position: relative;
   overflow-x: auto;
+  overflow-y: hidden;
   border-radius: 14px;
+  scrollbar-gutter: stable;
 }
 
-/* Table */
+/* Chrome / Edge / Safari */
+.tableScroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.tableScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tableScroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+}
+
+.tableScroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* Firefox */
+.tableScroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
+}
+
+/* Dark mode scrollbar */
+:global(html.dark) .tableScroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+:global(html.dark) .tableScroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+:global(html.dark) .tableScroll {
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+}
+
+/* ===============================
+   Table
+================================ */
 .dataTable {
   width: 100%;
+  min-width: 1000px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.9rem;
@@ -1161,10 +1202,11 @@ body {
 
 /* Header cells */
 .dataTable th {
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.75rem;
   text-align: left;
   font-weight: 600;
   color: inherit;
+  white-space: nowrap;
   border-bottom: 2px solid rgba(0, 0, 0, 0.12);
   border-right: 2px solid rgba(0, 0, 0, 0.08);
 }
@@ -1176,6 +1218,9 @@ body {
 /* Body cells */
 .dataTable td {
   padding: 0.6rem 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border-bottom: 2px solid rgba(0, 0, 0, 0.06);
   border-right: 2px solid rgba(0, 0, 0, 0.05);
 }
@@ -1188,7 +1233,9 @@ body {
   border-bottom: none;
 }
 
-/* Footer */
+/* ===============================
+   Footer
+================================ */
 .tableFooter {
   padding: 0.5rem 0;
   font-size: 0.8rem;
@@ -2459,7 +2506,7 @@ body {
   font-size: 20px;
   font-weight: 700;
   pointer-events: none;
-  margin-top: 10px;
+  margin-top: 6px;
   margin-left: -20px;
 }
 
