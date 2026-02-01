@@ -2591,6 +2591,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-top: 8px;
   }
 
   /* ===============================
@@ -2603,6 +2604,7 @@ body {
     padding-left: 14px !important;
     padding-right: 14px !important;
     box-sizing: border-box;
+   
   }
 
   /* ===============================
@@ -2614,6 +2616,8 @@ body {
     align-items: flex-start;
     justify-content: flex-start;
     gap: 12px;
+   
+
   }
 
   .mainLogo {
@@ -2622,7 +2626,7 @@ body {
     gap: 2px;
     flex: 1;
     min-width: 0;
-    margin-top: 2px;
+    margin-top: 9px;
     margin-left: 6px;
   }
 
@@ -2728,4 +2732,19 @@ body {
   .center.hasChat {
     justify-content: flex-start;
   }
+}
+@media (max-width: 768px) {
+  .topBar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+ 
+
+    /* IMPORTANT */
+    background: inherit; /* or your bg color */
+    backdrop-filter: blur(16px);
+  }
+  
 }

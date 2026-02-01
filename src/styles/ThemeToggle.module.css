@@ -147,7 +147,9 @@
   .knobDark {
     transform: translateX(31px);
   }
-
+.toggle {
+    transform: translateY(-11px);
+  }
   /* Knob icons */
   .knobIconLight,
   .knobIconDark {
