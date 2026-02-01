@@ -2578,7 +2578,9 @@ body {
   color: #111827;
   margin-right: 10px;
 }
-
+:global(html.dark) .mobileMenuBtn {
+  color: #ffffff;
+}
 /* Show only on mobile */
 @media (max-width: 768px) {
 
