@@ -1613,7 +1613,7 @@ const showProgress = backendLoading && !hasResponseStarted;
   <button
     className={styles.exampleCard}
     onClick={() => {
-      setInput("Analyze trending home decor products in the US market");
+      setInput("Analyze trending home decor products in the Uk market");
       inputRef.current?.focus();
     }}
   >
