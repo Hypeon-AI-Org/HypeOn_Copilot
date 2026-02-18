@@ -25,6 +25,7 @@ type Message =
   | { role: "user"; text: string }
   | {
       role: "assistant";
+      messageId?: string;
       summary: string;
       table: {
         type: "product_table" | "keyword_table";
@@ -307,6 +308,8 @@ useEffect(() => {
 
   // Local state for UI compatibility
   const [chats, setChats] = useState<ChatSession[]>([]);
+  const responseStartTimeRef = useRef<number>(0);
+
   const [activeChatId, setActiveChatId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     // In a fresh tab/session, start with a fresh chat (don’t auto-open last chat).
@@ -588,9 +591,12 @@ return [...updated, ...newChats].sort(
       return content;
     };
 
+    const newResponses = new Map<string, ChatResponse>();
+
     const convertedMessages: Message[] = normalizedBackendMessages.map((msg, index) => {
+      const generatedId = msg.message_id || `${msg.session_id || 's'}-${index}`;
       if (msg.role === 'user') {
-        return { role: 'user', text: msg.content };
+        return { role: 'user', messageId: generatedId, text: msg.content };
       } else {
         // Extract clean content from message
         const cleanContent = extractCleanContent(msg.content);
@@ -602,9 +608,22 @@ return [...updated, ...newChats].sort(
                               firstTable?.columns?.map((c: any) => c.name || c) || 
                               [];
           const tableRows = firstTable?.rows || [];
-          
+          const chatResp: ChatResponse = {
+            session_id: msg.session_id,
+            answer: cleanContent,
+            tables: msg.tables,
+            insights: msg.insights,
+            artifacts: msg.artifacts,
+            explanation: msg.explanation,
+            metadata: (msg as any).metadata,
+            sectionTitles: (msg as any).metadata?.sectionTitles,
+          };
+
+          newResponses.set(generatedId, chatResp);
+
           return {
             role: 'assistant',
+            messageId: generatedId,
             summary: cleanContent,
             table: {
               type: 'product_table' as const,
@@ -613,18 +632,7 @@ return [...updated, ...newChats].sort(
             },
             // Only mark as new if it's not part of initial load
             isNew: animateNewResponse && effectiveNewMessageIds.has(msg.message_id),
-
-            // Build chatResponse from message data
-            chatResponse: {
-              session_id: msg.session_id,
-              answer: cleanContent,
-              tables: msg.tables,
-              insights: msg.insights,
-              artifacts: msg.artifacts,
-              explanation: msg.explanation,
-              metadata: (msg as any).metadata,
-              sectionTitles: (msg as any).metadata?.sectionTitles,
-            },
+            chatResponse: chatResp,
           };
         }
 
@@ -644,6 +652,7 @@ return [...updated, ...newChats].sort(
         if (parsedData && parsedData.summary && parsedData.table) {
           return {
             role: 'assistant',
+            messageId: generatedId,
             summary: parsedData.summary,
             table: parsedData.table,
             // Only mark as new if it's not part of initial load
@@ -658,9 +667,12 @@ return [...updated, ...newChats].sort(
                               firstTable?.columns?.map((c: any) => c.name || c) || 
                               [];
           const tableRows = firstTable?.rows || [];
-          
+          const chatResp: ChatResponse = parsedData;
+          newResponses.set(generatedId, chatResp);
+
           return {
             role: 'assistant',
+            messageId: generatedId,
             summary: parsedData.answer,
             table: {
               type: 'product_table' as const,
@@ -669,7 +681,7 @@ return [...updated, ...newChats].sort(
             },
             // Only mark as new if it's not part of initial load
             isNew: effectiveNewMessageIds.has(msg.message_id) && (index >= initialMessageCount),
-            chatResponse: parsedData,
+            chatResponse: chatResp,
           };
         }
         else {
@@ -678,6 +690,7 @@ return [...updated, ...newChats].sort(
           const isNewMessage = effectiveNewMessageIds.has(msg.message_id) && (index >= initialMessageCount);
           return {
             role: 'assistant',
+            messageId: generatedId,
             summary: cleanContent,
             table: {
               type: 'product_table' as const,
@@ -689,6 +702,35 @@ return [...updated, ...newChats].sort(
         }
       }
     });
+    // Save new chat responses for lookup in rendering
+    if (newResponses.size > 0) {
+      setChatResponses((prev) => {
+        const merged = new Map(prev);
+        for (const [k, v] of newResponses.entries()) merged.set(k, v);
+        return merged;
+      });
+    }
+    //  HANDLE canceled streams (user message only)
+if (
+  !isLoadingSession &&
+  convertedMessages.length === 0 &&
+  normalizedBackendMessages.length > 0
+) {
+  setMessages(
+    normalizedBackendMessages.map(msg =>
+      msg.role === "user"
+        ? { role: "user", text: msg.content }
+        : {
+            role: "assistant",
+            summary: String(msg.content ?? ""),
+            table: { type: "product_table", columns: [], rows: [] },
+            isNew: false,
+          }
+    )
+  );
+  return;
+}
+
     setMessages(convertedMessages);
   }, [backendMessages, backendSessionId, isLoadingSession, pendingSessionId, activeChatId, initialMessageCount]);
 
@@ -923,8 +965,8 @@ useEffect(() => {
     if (!text.trim() || backendLoading) return;
 setHasResponseStarted(false);
 setAnimateNewResponse(true);
-
-    const currentActiveChatId = activeChatId;
+  responseStartTimeRef.current = Date.now();
+  const currentActiveChatId = activeChatId;
     
     // Clear input immediately for better UX
     setInput("");
@@ -935,10 +977,17 @@ setAnimateNewResponse(true);
         await backendSendMessageStreamFast(
   text,
   () => {
-    //  first token received → response generation started
+  const MIN_VISIBLE_MS = 400;
+  
+
+const elapsed = Date.now() - responseStartTimeRef.current;
+  const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
+
+  setTimeout(() => {
     setHasResponseStarted(true);
-  },
-  undefined
+  }, remaining);
+}
+
 );
 
       } else {
@@ -1075,6 +1124,7 @@ setAnimateNewResponse(true);
       const assistantMsg: Message = {
         role: "assistant",
         ...data,
+        messageId: crypto.randomUUID?.() ?? `local-${Date.now()}`,
         isNew: true,
       };
 
@@ -1148,7 +1198,10 @@ const showProgress = backendLoading && !hasResponseStarted;
     localStorage.setItem("hypeon_active_chat", id);
     setAnimateNewResponse(false);
 
-    
+    setHasResponseStarted(false);
+
+setNewMessageIds(new Set());
+
     // Clear messages immediately to show loading state
     setMessages([]);
     
@@ -1496,16 +1549,55 @@ const showProgress = backendLoading && !hasResponseStarted;
 </div>
 
   {backendLoading ? (
-    <button
+   <button
   className={`${styles.SendBtn} ${styles.cancelBtn}`}
   onClick={() => {
+    // 1️⃣ Stop backend stream
     backendCancelRequest();
+
+    // 2️⃣ IMMEDIATELY seal the conversation with an assistant message
+    setMessages(prev => {
+      if (prev.length === 0) return prev;
+
+      const last = prev[prev.length - 1];
+      if (last.role === "user") {
+        return [
+          ...prev,
+          {
+            role: "assistant",
+            summary: "⏹️ Request stopped by user.",
+            table: {
+              type: "product_table",
+              columns: [],
+              rows: [],
+            },
+              messageId: crypto.randomUUID?.() ?? `stopped-${Date.now()}`,
+              isNew: false,
+          },
+        ];
+      }
+      return prev;
+    });
+
+    //  Reset UI flags
     setHasResponseStarted(false);
+    setAnimateNewResponse(false);
+    setIsLoadingSession(false);
+    setPendingSessionId(null);
+    setTypingDone({});
+    setTableDone({});
+    setNewMessageIds(new Set());
+
+    //  Sync backend AFTER UI is stable
+    setTimeout(() => {
+      backendLoadSessions();
+    }, 0);
   }}
   title="Cancel request"
 >
   <span className={styles.stopSquare} />
 </button>
+
 
   ) : (
     <button
@@ -1608,6 +1700,7 @@ const showProgress = backendLoading && !hasResponseStarted;
   </div>
 
  <div className={styles.exampleGrid}>
+    <div className={styles.exampleTrack}>
 
   {/* Product Trends */}
   <button
@@ -1652,37 +1745,115 @@ const showProgress = backendLoading && !hasResponseStarted;
     <span className={styles.examplePreview}>See what customers are searching for before they buy.</span>
   </button>
 
-  {/* Competitor Analysis */}
-  <button
-    className={styles.exampleCard}
-    onClick={() => {
-      setInput("Compare top competitors in an e-commerce category");
-      inputRef.current?.focus();
-    }}
-  >
-    <span className={styles.topNotch}>
-      <span className={`${styles.notchIcon} ${styles.orange}`}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M7 8h10l-2-2M17 16H7l2 2"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-    </span>
-
-    <span className={styles.exampleText}>Competitor analysis</span>
-    <span className={styles.examplePreview}>See what your competitors sell and how they price it.</span>
-  </button>
 
   {/* Market Summary */}
   <button
     className={styles.exampleCard}
     onClick={() => {
-      setInput("Summarize key insights from current e-commerce market data");
+      setInput("Provide a market summary showing where demand is strongest and weakest globally for premium skincare.");
+      inputRef.current?.focus();
+    }}
+  >
+    <span className={styles.topNotch}>
+      <span className={`${styles.notchIcon} ${styles.purple}`}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="2"/>
+          <path d="M8 14v2M12 10v6M16 12v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </span>
+    </span>
+
+    <span className={styles.exampleText}>Market summary</span>
+    <span className={styles.examplePreview}>See what’s happening in the market at a glance.</span>
+  </button>
+  <button
+  className={styles.exampleCard}
+  onClick={() => {
+    setInput(
+      "Analyze the average customer rating of Nike.com"
+    );
+    inputRef.current?.focus();
+  }}
+>
+  <span className={styles.topNotch}>
+    <span className={`${styles.notchIcon} ${styles.purple}`}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <rect
+          x="4"
+          y="4"
+          width="16"
+          height="16"
+          rx="3"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+        <path
+          d="M7 15c1.5-1 3-1 4.5 0s3 1 4.5 0"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <circle cx="9" cy="10" r="1" fill="currentColor" />
+        <circle cx="15" cy="10" r="1" fill="currentColor" />
+      </svg>
+    </span>
+  </span>
+
+  <span className={styles.exampleText}>Brand review analysis</span>
+  <span className={styles.examplePreview}>
+    Understand how customers feel about your brand across channels.
+  </span>
+</button>
+
+
+ <button
+    className={styles.exampleCard}
+    onClick={() => {
+      setInput("Analyze trending home decor products in the Uk market");
+      inputRef.current?.focus();
+    }}
+  >
+    <span className={styles.topNotch}>
+      <span className={`${styles.notchIcon} ${styles.green}`}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M4 19V5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M4 19h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M8 15l3-3 3 3 4-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </span>
+    </span>
+
+    <span className={styles.exampleText}>Product trends</span>
+    <span className={styles.examplePreview}>See which products are trending right now.</span>
+  </button>
+
+  {/* Keyword Insights */}
+  <button
+    className={styles.exampleCard}
+    onClick={() => {
+      setInput("Find high-intent keywords customers use to buy products");
+      inputRef.current?.focus();
+    }}
+  >
+    <span className={styles.topNotch}>
+      <span className={`${styles.notchIcon} ${styles.blue}`}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+          <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </span>
+    </span>
+
+    <span className={styles.exampleText}>Keyword insights</span>
+    <span className={styles.examplePreview}>See what customers are searching for before they buy.</span>
+  </button>
+
+
+  {/* Market Summary */}
+  <button
+    className={styles.exampleCard}
+    onClick={() => {
+      setInput("Provide a market summary showing where demand is strongest and weakest globally for premium skincare.");
       inputRef.current?.focus();
     }}
   >
@@ -1699,9 +1870,49 @@ const showProgress = backendLoading && !hasResponseStarted;
     <span className={styles.examplePreview}>See what’s happening in the market at a glance.</span>
   </button>
 
+  <button
+  className={styles.exampleCard}
+  onClick={() => {
+    setInput(
+      "Analyze the average customer rating of Nike.com"
+    );
+    inputRef.current?.focus();
+  }}
+>
+  <span className={styles.topNotch}>
+    <span className={`${styles.notchIcon} ${styles.purple}`}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <rect
+          x="4"
+          y="4"
+          width="16"
+          height="16"
+          rx="3"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+        <path
+          d="M7 15c1.5-1 3-1 4.5 0s3 1 4.5 0"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <circle cx="9" cy="10" r="1" fill="currentColor" />
+        <circle cx="15" cy="10" r="1" fill="currentColor" />
+      </svg>
+    </span>
+  </span>
+
+  <span className={styles.exampleText}>Brand review analysis</span>
+  <span className={styles.examplePreview}>
+    Understand how customers feel about your brand across channels.
+  </span>
+</button>
+
+
 </div>
 
-
+</div>
 </div>
 )}
               </div>
@@ -1714,7 +1925,7 @@ const showProgress = backendLoading && !hasResponseStarted;
 
                   if (msg.role === "user") {
                     return (
-                      <div key={i} className={styles.userMsg}>
+                      <div key={(msg as any).messageId ?? `user-${i}`} className={styles.userMsg}>
                         {msg.text}
                       </div>
                     );
@@ -1737,28 +1948,13 @@ const showProgress = backendLoading && !hasResponseStarted;
                   // Check if this is a streaming message (waiting for complete response)
                   const isStreaming = (msg as any).isStreaming === true;
                   
-                  // Show loading indicator while streaming (waiting for complete response)
-                  if (isStreaming) {
-                    return (
-                      <div
-                        key={i}
-                        className={styles.assistantMessage}
-                        ref={isLastAssistant ? lastAssistantRef : null}
-                      >
-                        <div className={styles.answerContent}>
-                          <div className={styles.waitingMessage}>Generating response...</div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  
                   // Use new ChatMessage component if we have new format data
                   if (chatResponse && (chatResponse.tables || chatResponse.explanation || chatResponse.answer)) {
                     // Show with animation for new messages
                     const shouldAnimate = msg.isNew === true && animateNewResponse;
 
                     return (
-                      <div key={i} ref={isLastAssistant ? lastAssistantRef : null}>
+                      <div key={(msg as any).messageId ?? `msg-${i}`} ref={isLastAssistant ? lastAssistantRef : null}>
                         <ChatMessage
                           response={chatResponse}
                           isUser={false}
@@ -1773,7 +1969,7 @@ const showProgress = backendLoading && !hasResponseStarted;
                   if (isStreaming) {
                     return (
                       <div
-                        key={i}
+                        key={(msg as any).messageId ?? `msg-${i}`}
                         className={styles.assistantMessage}
                         ref={isLastAssistant ? lastAssistantRef : null}
                       >
@@ -1792,7 +1988,7 @@ const showProgress = backendLoading && !hasResponseStarted;
 
                   // Fallback to old format rendering
                   return (
-                    <div key={i} ref={isLastAssistant ? lastAssistantRef : null}>
+                    <div key={(msg as any).messageId ?? `msg-${i}`} ref={isLastAssistant ? lastAssistantRef : null}>
                       <div className={styles.answerContent}>
                         {msg.isNew && animateNewResponse && !typingDone[i] ? (
 

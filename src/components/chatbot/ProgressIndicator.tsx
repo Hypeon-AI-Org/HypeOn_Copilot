@@ -245,10 +245,7 @@ const Icon = displayIcon;
     {/* LEFT: Spinner (replaces progress bar) */}
     <span className={styles.inlineSpinner} />
 
-    {/* RIGHT: Percentage (same as before) */}
-    <span className={styles.inlinePercent}>
-      {Math.round(overallProgress * 100)}%
-    </span>
+    
 
   </div>
 )}
