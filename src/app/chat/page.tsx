@@ -351,7 +351,16 @@ useEffect(() => {
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    setTimeout(() => setMounted(true), 60);
+    let cancelled = false;
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!cancelled) setMounted(true);
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
   }, []);
 
   // Countdown timer for rate limit retry
